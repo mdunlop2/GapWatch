@@ -2,6 +2,7 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_player as player
 from dash.dependencies import Input, Output
 
 import cv2
@@ -19,12 +20,29 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
+# vid_url = 'https://www.youtube.com/watch?v=gPtn6hD7o8g'
+vid_url = "static/output.mp4"
+
 app.layout = html.Div(children=[
     html.H1(children='Hello Dash'),
 
-    html.Div(children='''
-        Dash: A web application framework for Python.
-    '''),
+    html.Div(
+                    className='video-outer-container',
+                    children=html.Div(
+                        style={'width': '100%', 'paddingBottom': '56.25%', 'position': 'relative'},
+                        children=player.DashPlayer(
+                            id='video-display',
+                            style={'position': 'absolute', 'width': '100%',
+                                   'height': '100%', 'top': '0', 'left': '0', 'bottom': '0', 'right': '0'},
+                            url=vid_url,
+                            controls=True,
+                            playing=False,
+                            volume=1,
+                            width='100%',
+                            height='100%'
+                        )
+                    )
+            ),
     html.Img(
                 id="body-image",
                 className="three columns"
@@ -49,3 +67,5 @@ def update_image(hover_data):
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+
+
