@@ -1,3 +1,4 @@
 *.mp4
 *.avi
-*.vscode-workspace
+*.code-workspace
+*.vscode
