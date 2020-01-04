@@ -20,8 +20,12 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
+# Constants
+
 # vid_url = 'https://www.youtube.com/watch?v=gPtn6hD7o8g'
 vid_url = "static/output.mp4"
+
+playbackRate = 10
 
 app.layout = html.Div(children=[
     html.H1(children='Hello Dash'),
@@ -39,7 +43,8 @@ app.layout = html.Div(children=[
                             playing=False,
                             volume=1,
                             width='100%',
-                            height='100%'
+                            height='100%',
+                            playbackRate=playbackRate
                         )
                     )
             ),
