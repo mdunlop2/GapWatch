@@ -22,7 +22,9 @@ import common.data.labels.app.label_utils as lu
 parser = argparse.ArgumentParser()
 parser.add_argument("STATIC",
         help="Full location of folder containing the videos we want to label")
-
+parser.add_argument("--PLAYBACK_RATE",
+        help="Playback speed of the video player.",
+        default=10)
 # read arguments from the command line
 args = parser.parse_args()
 
@@ -43,6 +45,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 ### TEMPORARY FIXES  ###
+# attempt to use an array of urls
 vid_url = "static/output.mp4"
 
 ### \TEMPORARY FIXES ###
@@ -53,11 +56,14 @@ app.layout = html.Div(children=[
     html.Div(children='''
         Dash: A web application framework for Python.
     '''),
-    html.Img(
-                id="body-image",
-                className="three columns"
+    html.Div(
+        className='control-element',
+        children=[
+                    html.Button('Next Video', id='dropdown-footage-next'),
+                    html.Button('Previous Video', id='dropdown-footage-prev'),
+        ]
     ),
-    html.Button('Submit', id='button'),
+    
     html.Div(
                     className='video-outer-container',
                     children=html.Div(
@@ -71,25 +77,31 @@ app.layout = html.Div(children=[
                             playing=False,
                             volume=1,
                             width='100%',
-                            height='100%'
+                            height='100%',
+                            playbackRate= args.PLAYBACK_RATE
                         )
                     )
             ),
 ])
 
-@app.callback(Output("body-image", "src"),
-             [Input('button', 'value')])
-def update_image(hover_data):
-    # iterate to next image
-    video_loc = "/mnt/other/projects/GapWatch/week_1/6 sept Friday/MOVI0000.avi"
-    cap = cv2.VideoCapture(video_loc)
-    frame_np = lu.get_image(cap, 1)
-    fig, ax = plt.subplots(1,1)
-    ax.imshow(frame_np)
-    out_url = lu.fig_to_uri(fig)
-
-    return out_url
-
+# Data Loading
+@app.server.before_first_request
+def load_all():
+    '''
+    Perform the following initial steps:
+    - Find and update csv file containing urls of all videos in args.STATIC
+        - create it if it does not exist
+    - Find csv file for storing frame labels
+        - create it if it does not exist
+    '''
+    
+# Footage Selection
+@app.callback(Output("video-display", "url"),
+              [Input('dropdown-footage-next', 'value')])
+def select_footage(footage, display_mode):
+    # Find desired footage and update player video
+    url = url_dict[display_mode][footage]
+    return url
 
 
 if __name__ == '__main__':
