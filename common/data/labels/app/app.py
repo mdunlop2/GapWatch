@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 
 # Custom Scripts:
 import common.data.labels.app.label_utils as lu
+import common.data.labels.generate_index as gi
 
 # initiate the parser
 parser = argparse.ArgumentParser()
@@ -35,6 +36,19 @@ STATIC_SHORTCUT_LOC = os.path.join(app_file_parent_path, "static")
 try:
     os.symlink(args.STATIC, STATIC_SHORTCUT_LOC)
 except FileExistsError:
+    # refresh the shortcut in case destination has changed
+    os.remove(STATIC_SHORTCUT_LOC)
+    os.symlink(args.STATIC, STATIC_SHORTCUT_LOC)
+
+
+# Add Configuration Files
+# Dash searches for a 'static' file in same folder as this .py file
+app_file_parent_path = Path(__file__).absolute().parent
+CONFIG_LOC = os.path.join(app_file_parent_path, "config")
+try:
+    # generate configuration file
+    os.mkdir(CONFIG_LOC)
+except:
     # refresh the shortcut in case destination has changed
     os.remove(STATIC_SHORTCUT_LOC)
     os.symlink(args.STATIC, STATIC_SHORTCUT_LOC)
@@ -94,6 +108,8 @@ def load_all():
     - Find csv file for storing frame labels
         - create it if it does not exist
     '''
+    # load application configuration
+    # generate the index of videos to be used
     
 # Footage Selection
 @app.callback(Output("video-display", "url"),
