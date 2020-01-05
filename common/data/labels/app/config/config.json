@@ -1,4 +1,6 @@
 {
-    "current_video_pos": 1,
-    "next_footage_step": 1
+    "current_video_pos": 0,
+    "next_footage_step": 1,
+    "current_scene_label": "No Danger",
+    "video_urls_file_loc": "/home/matthew/Documents/GapWatch/common/data/labels/app/video_urls.csv"
 }
