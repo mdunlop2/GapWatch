@@ -21,25 +21,6 @@ import pandas as pd
 from pathlib import Path
 import time
 
-# initiate the parser
-parser = argparse.ArgumentParser()
-
-# add arguments
-parser.add_argument("FOLDER", help="folder which contains the .mp4  files. \nMust give full address")
-parser.add_argument("OUT_LOC", help="location of the .csv file to store index in. \nMust give full address")
-parser.add_argument("--COL_NAME",
-                    help="Name of column used in csv to store the file locations",
-                    default="gap_video_locs")
-
-
-
-# read arguments from the command line
-args = parser.parse_args()
-
-# Check if OUT_LOC already exists
-# if it does, then load it in and we'll join the new locations to it
-# this allows for updating if new videos are added etc
-
 def find_files(root, extensions):
     for ext in extensions:
         yield from Path(root).glob(f'**/*.{ext}')
@@ -74,4 +55,18 @@ def generate_index(FOLDER, OUT_LOC, COL_NAME):
 
 
 if __name__ == "__main__":
+    # initiate the parser
+    parser = argparse.ArgumentParser()
+
+    # add arguments
+    parser.add_argument("FOLDER", help="folder which contains the .mp4  files. \nMust give full address")
+    parser.add_argument("OUT_LOC", help="location of the .csv file to store index in. \nMust give full address")
+    parser.add_argument("--COL_NAME",
+                        help="Name of column used in csv to store the file locations",
+                        default="gap_video_locs")
+    # read arguments from the command line
+    args = parser.parse_args()
+    # Check if OUT_LOC already exists
+    # if it does, then load it in and we'll join the new locations to it
+    # this allows for updating if new videos are added etc
     generate_index(args.FOLDER, args.OUT_LOC, args.COL_NAME)
