@@ -2,7 +2,7 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import dash_player as player
 import argparse
 
@@ -12,35 +12,42 @@ import os
 from pathlib import Path
 
 import pandas as pd
+import sqlite3
 # Add the git root directory to python path
 sys.path.insert(0,os.getcwd())
+app_file_parent_path = Path(__file__).absolute().parent
 
 import matplotlib.pyplot as plt
 
 # Custom Scripts:
 import common.data.labels.app.label_utils as lu
 import common.data.labels.generate_index as gi
+import common.data.labels.frame_label_utils as flu
 from common.data.labels.app.config_utils import JSONPropertiesFile
 
 ### TEMPORARY FIXES  ###
-# attempt to use an array of urls
-url_list = ["static/output.mp4",
-            "static/1_CPU.mp4",
-            "static/2_CPU.mp4"]
-
 # Labels (move to a configuration file created on startup)
 labels = [
     'No Danger',
     'Danger'
 ]
 
+# dummy video
+dummy_url = "static/1.mp4"
+
 
 # Default fields for the application (move to a configuration file created on startup)
 default_properties = {
-    'current_video_pos' : 0,
-    'next_footage_step' : 1,
-    'current_scene_label' : labels[0],
-    'video_urls_file_loc' : ''
+    'current_video_pos'   : 0,
+    'current_video_url'   : "",
+    'next_footage_step'   : 1,
+    'video_urls_file_loc' : '',
+    "frame_urls_file_loc" : "",
+    "frame_db_loc"        : "",
+    "last_frame"          : 0,
+    "last_video_url"      : os.path.join(app_file_parent_path, dummy_url),
+    "last_label"          : labels[0],
+    "current_framerate"   : 0
 }
 
 # Set the column name for VIDEO_URLS_FILE
@@ -60,7 +67,6 @@ args = parser.parse_args()
 
 # Add Static Files
 # Dash searches for a 'static' file in same folder as this .py file
-app_file_parent_path = Path(__file__).absolute().parent
 STATIC_SHORTCUT_LOC = os.path.join(app_file_parent_path, "static")
 try:
     os.symlink(args.STATIC, STATIC_SHORTCUT_LOC)
@@ -95,6 +101,15 @@ print("Config read successful.")
 
 # Ensure video_urls.csv exists
 VIDEO_URLS_FILE_LOC = os.path.join(app_file_parent_path, "video_urls.csv")
+
+# ensure frames_urls.csv exists
+FRAME_URLS_FILE_LOC = os.path.join(app_file_parent_path, "frame_urls.csv")
+
+# Ensure the sqlite database for labels exists
+FRAMES_DB = os.path.join(app_file_parent_path, "frames.db")
+connex = sqlite3.connect(FRAMES_DB, check_same_thread=False)  # Opens file if exists, else creates file
+cur = connex.cursor()                # Send messages and receive results
+table_name = "data"                  # Specify the table name
 
 # Get CSS stylesheets
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -140,7 +155,7 @@ app.layout = html.Div(children=[
                             id='video-display',
                             style={'position': 'absolute', 'width': '100%',
                                    'height': '100%', 'top': '0', 'left': '0', 'bottom': '0', 'right': '0'},
-                            url="static/1.mp4",
+                            url=dummy_url,
                             controls=True,
                             playing=False,
                             volume=1,
@@ -179,9 +194,25 @@ def load_all():
     # load application configuration
     # generate the index of videos to be used
     gi.generate_index(STATIC_SHORTCUT_LOC, VIDEO_URLS_FILE_LOC, COLNAME)
+    # generate the index of frames with labels from videos in the index.
+    flu.generate_frame_labels(VIDEO_URLS_FILE_LOC,
+                              COLNAME,
+                              FRAME_URLS_FILE_LOC,
+                              PAD=7)
+    # setup the SQLite database for read/writes of labels from the tool
+    for chunk in pd.read_csv(FRAME_URLS_FILE_LOC, chunksize=1024**2):
+        chunk.to_sql(name=table_name,
+                     con=connex,
+                     if_exists="append",
+                     index=False)
+    connex.commit()
+    # save configuration
     config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
     config = config_file.get()
     config["video_urls_file_loc"] = VIDEO_URLS_FILE_LOC
+    config["frame_urls_file_loc"] = FRAME_URLS_FILE_LOC
+    config["frame_db_loc"]        = FRAMES_DB
+    config["last_video_url"]      = config["current_video_url"]
     config_file.set(config)
 
     
@@ -203,8 +234,9 @@ def update_footage(value):
     
 # Footage Selection
 @app.callback(Output("video-display", "url"),
-              [Input('dropdown-footage-next', 'n_clicks')])
-def next_footage(footage):
+              [Input('dropdown-footage-next', 'n_clicks')],
+              [State('video-display', 'currentTime')])
+def next_footage(footage, current_time):
     # Find desired footage and update player video
     # find current video position and step to move
     config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
@@ -214,11 +246,35 @@ def next_footage(footage):
     url_df = pd.read_csv(config["video_urls_file_loc"])
     new_pos = (current_pos + next_footage_step ) % (len(url_df))
     # find the video corresponding to new_pos
+    full_url = url_df.at[new_pos, COLNAME]
     # must change so that it only refers to the static folder (limitation of Dash)
-    url = url_df.at[new_pos, COLNAME].replace(str(app_file_parent_path), '')
-    # this url needs to be changed to its location in STATIC
+    url = full_url.replace(str(app_file_parent_path), '')
+    # get framerate
+    video = cv2.VideoCapture(full_url)
+    FRAMERATE = int(video.get(cv2.CAP_PROP_FPS))
     # update config
     config["current_video_pos"] = new_pos
+    config["current_framerate"] = FRAMERATE
+    config["current_video_url"] = full_url
+    last_frame        = config["last_frame"]
+    last_label        = config["last_label"]
+    last_video_url    = config["last_video_url"]
+    current_video_url = config["current_video_url"]
+    framerate         = config["current_framerate"]
+    current_label     = last_label # Did not change the label!
+    # get the current frame
+    if current_time:
+        current_frame = int(round(current_time * framerate))
+        if last_frame <= current_frame:
+            # update the sql fields
+            print("Updating Video: {} \nFrames: {} to {}\nLabel: {}".format(current_video_url, last_frame, current_frame, last_label ))
+    else:
+        current_frame = 0
+        # We are at the start of the video so do nothing
+    # set last_frame, last_label, last_video_url now
+    config["last_frame"]     = current_frame
+    config["last_label"]     = current_label
+    config["last_video_url"] = current_video_url
     config_file.set(config)
     # return new url
     return url
@@ -226,9 +282,42 @@ def next_footage(footage):
 # Update label for this scene
 @app.callback(
     Output('dd-output-container', 'children'),
-    [Input('label-radio', 'value')])
-def update_output(value):
-    return 'This scene will be labelled: "{}"'.format(value)
+    [Input('label-radio', 'value')],
+    [State('video-display', 'currentTime')])
+def update_label(current_label, current_time):
+    '''
+    This function is called when the label choice changes.
+    To simplify operation, we will only update labels when the video is playing forwards
+    ie.
+        - if last_frame < current_frame and last_video_url = current_video_url:
+            update the label for all frames: last_frame<= frame <current_frame
+            to last_label
+        - else:
+            Do NOT write to database!
+    '''
+    print(current_time)
+    config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
+    config = config_file.get()
+    last_frame        = config["last_frame"]
+    last_label        = config["last_label"]
+    last_video_url    = config["last_video_url"]
+    current_video_url = config["current_video_url"]
+    framerate         = config["current_framerate"]
+    # get the current frame
+    if current_time:
+        current_frame = int(round(current_time * framerate))
+        if (last_frame <= current_frame) and (current_video_url == last_video_url) and (current_label != last_label):
+            # update the sql fields
+            print("Updating Video: {} \nFrames: {} to {}\nLabel: {}".format(current_video_url, last_frame, current_frame, last_label ))
+    else:
+        current_frame = 0
+        # We are at the start of the video so do nothing
+    # set last_frame, last_label, last_video_url now
+    config["last_frame"]     = current_frame
+    config["last_label"]     = current_label
+    config["last_video_url"] = current_video_url
+    config_file.set(config)
+    return 'This scene will be labelled: "{}"'.format(current_label)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
