@@ -64,7 +64,7 @@ def update_label_array( connex,
                         new_label,
                         pad = 7):
     '''
-    Attempt to update each frame that is in our between frame_start and frame_end.
+    Attempt to update each frame that is in between frame_start and frame_end.
         - Give it label new_label
     
     To do this, we need some funky SQLite code as cannot simply export a list
@@ -86,3 +86,16 @@ def update_label_array( connex,
     cursor.execute(sql_update_query, frame_ids)
     print("Table: {} updated!".format(table_name))
     connex.commit()
+
+def read_label(connex,
+               table_name,
+               frame_id,
+               frame_col_name,
+               label_col_name):
+    cursor = connex.cursor()
+    sql = """SELECT {} FROM {} WHERE {} = "{}" """.format(label_col_name,
+                                                   table_name,
+                                                   frame_col_name,
+                                                   frame_id)  
+    cursor.execute(sql)  # The cursor gives this command to our DB, the results are now available in cur
+    print(cursor.fetchall())

@@ -328,6 +328,15 @@ def update_label(current_label, current_time):
         if (last_frame <= current_frame) and (current_video_url == last_video_url) and (current_label != last_label):
             # update the sql fields
             print("Updating Video: {} \nFrames: {} to {}\nLabel: {}".format(current_video_url, last_frame, current_frame, last_label ))
+            squ.update_label_array( connex,
+                                    table_name,
+                                    LABEL_COLNAME,
+                                    FRAME_COLNAME,
+                                    current_video_url,
+                                    last_frame,
+                                    current_frame,
+                                    last_label,
+                                    pad=PAD)
     else:
         current_frame = 0
         # We are at the start of the video so do nothing

@@ -5,9 +5,9 @@
     "video_urls_file_loc": "/home/matthew/Documents/GapWatch/common/data/labels/app/video_urls.csv",
     "frame_urls_file_loc": "/home/matthew/Documents/GapWatch/common/data/labels/app/frame_urls.csv",
     "frame_db_loc": "/home/matthew/Documents/GapWatch/common/data/labels/app/frames.db",
-    "last_frame": 0,
+    "last_frame": 3954,
     "last_video_url": "/home/matthew/Documents/GapWatch/common/data/labels/app/static/b.mp4",
-    "last_label": "No_Danger",
+    "last_label": "Danger",
     "current_framerate": 30,
     "current_scene_label": "No Danger"
 }
