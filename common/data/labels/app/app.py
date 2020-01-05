@@ -23,12 +23,13 @@ import matplotlib.pyplot as plt
 import common.data.labels.app.label_utils as lu
 import common.data.labels.generate_index as gi
 import common.data.labels.frame_label_utils as flu
+import common.data.labels.frame_sqlite_utils as squ
 from common.data.labels.app.config_utils import JSONPropertiesFile
 
 ### TEMPORARY FIXES  ###
 # Labels (move to a configuration file created on startup)
 labels = [
-    'No Danger',
+    'No_Danger',
     'Danger'
 ]
 
@@ -45,13 +46,20 @@ default_properties = {
     "frame_urls_file_loc" : "",
     "frame_db_loc"        : "",
     "last_frame"          : 0,
-    "last_video_url"      : os.path.join(app_file_parent_path, dummy_url),
+    "last_video_url"      : "",
     "last_label"          : labels[0],
     "current_framerate"   : 0
 }
 
 # Set the column name for VIDEO_URLS_FILE
 COLNAME = "gap_video_locs"
+
+# Set the column name for FRAME_URLS_FILE
+FRAME_COLNAME = "frame"
+LABEL_COLNAME = "label"
+
+# Set the padding level to use.
+PAD = 7
 
 ### \TEMPORARY FIXES ###
 
@@ -198,7 +206,9 @@ def load_all():
     flu.generate_frame_labels(VIDEO_URLS_FILE_LOC,
                               COLNAME,
                               FRAME_URLS_FILE_LOC,
-                              PAD=7)
+                              OUT_LOC_FRAME_COLNAME=FRAME_COLNAME,
+                              OUT_LOC_LABEL_COLNAME=LABEL_COLNAME,
+                              PAD=PAD)
     # setup the SQLite database for read/writes of labels from the tool
     for chunk in pd.read_csv(FRAME_URLS_FILE_LOC, chunksize=1024**2):
         chunk.to_sql(name=table_name,
@@ -268,6 +278,15 @@ def next_footage(footage, current_time):
         if last_frame <= current_frame:
             # update the sql fields
             print("Updating Video: {} \nFrames: {} to {}\nLabel: {}".format(current_video_url, last_frame, current_frame, last_label ))
+            squ.update_label_array( connex,
+                                    table_name,
+                                    LABEL_COLNAME,
+                                    FRAME_COLNAME,
+                                    current_video_url,
+                                    last_frame,
+                                    current_frame,
+                                    last_label,
+                                    pad=PAD)
     else:
         current_frame = 0
         # We are at the start of the video so do nothing
