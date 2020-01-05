@@ -2,3 +2,4 @@
 *.avi
 *.code-workspace
 *.vscode
+*frame_urls.csv

@@ -29,7 +29,7 @@ def generate_index(FOLDER, OUT_LOC, COL_NAME):
     start = time.time()
     gap_video_locs = [str(gap_video) for gap_video in find_files(FOLDER, ['mp4'])]
 
-    print("Time Taken: {}".format(time.time()-start))
+    print("Time taken to find all videos: {} seconds.".format(time.time()-start))
 
     gap_video_loc_df = pd.DataFrame(gap_video_locs,
                                     columns = [COL_NAME])

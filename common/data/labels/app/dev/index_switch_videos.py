@@ -182,6 +182,8 @@ def load_all():
     config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
     config = config_file.get()
     config["video_urls_file_loc"] = VIDEO_URLS_FILE_LOC
+    # find the stored frames file
+    
     config_file.set(config)
 
     
@@ -223,12 +225,21 @@ def next_footage(footage):
     # return new url
     return url
 
-# Update label for this scene
+# Update choice of label for this scene
 @app.callback(
     Output('dd-output-container', 'children'),
     [Input('label-radio', 'value')])
 def update_output(value):
+    # Initialise config file
+    config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
+    config = config_file.get()
+    # write the new value to the config
+    config["current_scene_label"] = value
+    config_file.set(config)
+    # Display the current selected step
     return 'This scene will be labelled: "{}"'.format(value)
+
+# Save the label for this scene
 
 if __name__ == '__main__':
     app.run_server(debug=True)
