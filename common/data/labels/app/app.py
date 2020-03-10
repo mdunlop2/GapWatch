@@ -353,7 +353,8 @@ def write_label(n, current_time, current_label):
     # reset the frame_start to current frame
     config["frame_start"] = frame_end
     config_file.set(config)
-    return [html.P("Frames {} to {} Written to DataBase as {}!".format(frame_start, frame_end, current_label))]
+    return [html.P("Frames {} to {} Written to DataBase as {}!".format(frame_start, frame_end, current_label)),
+            html.P("for video {}".format(current_video_url))]
 
 
 @app.callback(Output('config-output-container', 'children'),

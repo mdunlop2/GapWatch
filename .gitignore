@@ -4,3 +4,7 @@
 *.vscode
 *frame_urls.csv
 *.db
+common/data/labels/__pycache__/frame_sqlite_utils.cpython-37.pyc
+common/data/labels/app/video_urls.csv
+common/data/labels/app/video_urls.csv
+common/data/labels/app/config/config.json
