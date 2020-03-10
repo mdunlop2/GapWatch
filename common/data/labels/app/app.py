@@ -29,6 +29,7 @@ from common.data.labels.app.config_utils import JSONPropertiesFile
 ### TEMPORARY FIXES  ###
 # Labels (move to a configuration file created on startup)
 labels = [
+    'NA',
     'No_Danger',
     'Danger'
 ]
@@ -45,7 +46,7 @@ default_properties = {
     'video_urls_file_loc' : '',
     "frame_urls_file_loc" : "",
     "frame_db_loc"        : "",
-    "last_frame"          : 0,
+    "frame_start"          : 0,
     "last_video_url"      : "",
     "last_label"          : labels[0],
     "current_framerate"   : 0
@@ -177,14 +178,26 @@ app.layout = html.Div(children=[
                     className='label-container',
                     children=[
                         html.Div([
-                                    dcc.RadioItems(
+                            html.Div([
+                                        dcc.RadioItems(
                                         id='label-radio',
                                         options=[{'label':i, 'value':i} for i in labels],
                                         value=labels[0]
                                     ),  
                                     html.Div(id='dd-output-container')
-                                ]),
-                        html.Div(id='label-select-output-container')
+                                ],className="six columns"),
+                            html.Div([
+                                html.Button('Add Label', id='add-label'),
+                                html.Div(id='add-label-output-container')
+                                ],className="six columns")
+                            ],className="row"),
+                        html.Div(id='label-select-output-container'),
+                        html.Div(id='config-output-container'),
+                        dcc.Interval(
+                            id='interval-component',
+                            interval=1*1000, # in milliseconds
+                            n_intervals=0
+                        )
                     ]
             )
 ])
@@ -247,18 +260,32 @@ def update_footage(value):
               [Input('dropdown-footage-next', 'n_clicks')],
               [State('video-display', 'currentTime')])
 def next_footage(footage, current_time):
+    '''
+    INPUTS:
+    footage      : Dummy variable for number of times "NEXT VIDEO"
+                   Button is triggered 
+    current_time : Current time in seconds on the video
+                   (Unused!)
+
+    OUTPUTS:
+    url          : Url of the next video
+    '''
     # Find desired footage and update player video
     # find current video position and step to move
     config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
     config = config_file.get()
-    current_pos = config["current_video_pos"]
+    last_video_url    = config["last_video_url"]
+    current_pos       = config["current_video_pos"]
     next_footage_step = config["next_footage_step"]
+    last_video_url    = config["current_video_url"]
+
     url_df = pd.read_csv(config["video_urls_file_loc"])
     new_pos = (current_pos + next_footage_step ) % (len(url_df))
     # find the video corresponding to new_pos
     full_url = url_df.at[new_pos, COLNAME]
     # must change so that it only refers to the static folder (limitation of Dash)
     url = full_url.replace(str(app_file_parent_path), '')
+    
     # get framerate
     video = cv2.VideoCapture(full_url)
     FRAMERATE = int(video.get(cv2.CAP_PROP_FPS))
@@ -266,34 +293,11 @@ def next_footage(footage, current_time):
     config["current_video_pos"] = new_pos
     config["current_framerate"] = FRAMERATE
     config["current_video_url"] = full_url
-    last_frame        = config["last_frame"]
-    last_label        = config["last_label"]
-    last_video_url    = config["last_video_url"]
-    current_video_url = config["current_video_url"]
-    framerate         = config["current_framerate"]
-    current_label     = last_label # Did not change the label!
-    # get the current frame
-    if current_time:
-        current_frame = int(round(current_time * framerate))
-        if last_frame <= current_frame:
-            # update the sql fields
-            print("Updating Video: {} \nFrames: {} to {}\nLabel: {}".format(current_video_url, last_frame, current_frame, last_label ))
-            squ.update_label_array( connex,
-                                    table_name,
-                                    LABEL_COLNAME,
-                                    FRAME_COLNAME,
-                                    current_video_url,
-                                    last_frame,
-                                    current_frame,
-                                    last_label,
-                                    pad=PAD)
-    else:
-        current_frame = 0
-        # We are at the start of the video so do nothing
-    # set last_frame, last_label, last_video_url now
-    config["last_frame"]     = current_frame
-    config["last_label"]     = current_label
-    config["last_video_url"] = current_video_url
+    # We are at the start of the video so do nothing
+    # set frame_start, last_label, last_video_url now
+    config["frame_start"]     = 0
+    config["last_label"]     = labels[0]
+    config["last_video_url"] = last_video_url
     config_file.set(config)
     # return new url
     return url
@@ -308,8 +312,8 @@ def update_label(current_label, current_time):
     This function is called when the label choice changes.
     To simplify operation, we will only update labels when the video is playing forwards
     ie.
-        - if last_frame < current_frame and last_video_url = current_video_url:
-            update the label for all frames: last_frame<= frame <current_frame
+        - if frame_start < current_frame and last_video_url = current_video_url:
+            update the label for all frames: frame_start<= frame <current_frame
             to last_label
         - else:
             Do NOT write to database!
@@ -317,35 +321,72 @@ def update_label(current_label, current_time):
     print(current_time)
     config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
     config = config_file.get()
-    last_frame        = config["last_frame"]
-    last_label        = config["last_label"]
-    last_video_url    = config["last_video_url"]
-    current_video_url = config["current_video_url"]
-    framerate         = config["current_framerate"]
-    # get the current frame
-    if current_time:
-        current_frame = int(round(current_time * framerate))
-        if (last_frame <= current_frame) and (current_video_url == last_video_url) and (current_label != last_label):
-            # update the sql fields
-            print("Updating Video: {} \nFrames: {} to {}\nLabel: {}".format(current_video_url, last_frame, current_frame, last_label ))
-            squ.update_label_array( connex,
-                                    table_name,
-                                    LABEL_COLNAME,
-                                    FRAME_COLNAME,
-                                    current_video_url,
-                                    last_frame,
-                                    current_frame,
-                                    last_label,
-                                    pad=PAD)
-    else:
-        current_frame = 0
-        # We are at the start of the video so do nothing
-    # set last_frame, last_label, last_video_url now
-    config["last_frame"]     = current_frame
-    config["last_label"]     = current_label
-    config["last_video_url"] = current_video_url
+    config["last_label"] = current_label
     config_file.set(config)
     return 'This scene will be labelled: "{}"'.format(current_label)
+
+@app.callback(Output('add-label-output-container', 'children'),
+              [Input('add-label', 'n_clicks')],
+              [State('video-display', 'currentTime'),
+               State('label-radio', 'value')])
+def write_label(n, current_time, current_label):
+    '''
+    Writes the label for frames between frame_start and frame_end
+    as current_label
+    '''
+    config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
+    config      = config_file.get()
+    framerate   = config["current_framerate"]
+    frame_start = config["frame_start"]
+    current_video_url = config["current_video_url"]
+    frame_end   = int(round(current_time * framerate))
+    squ.update_label_array(
+        connex,
+        table_name,
+        LABEL_COLNAME,
+        FRAME_COLNAME,
+        current_video_url,
+        frame_start,
+        frame_end,
+        current_label
+    )
+    # reset the frame_start to current frame
+    config["frame_start"] = frame_end
+    config_file.set(config)
+    return [html.P("Frames {} to {} Written to DataBase as {}!".format(frame_start, frame_end, current_label))]
+
+
+@app.callback(Output('config-output-container', 'children'),
+              [Input('interval-component', 'n_intervals')],
+              [State('video-display', 'currentTime'),
+               State('label-radio', 'value')])
+def status_update(n, current_time, label):
+    '''
+    This function regularly updates the UI with the
+    program configuration.
+
+    INPUTS:
+    n
+    current_time  : Current time in seconds on the video
+    label         : Label that will be applied to all frames
+                    between frame_start and frame_end
+
+    OUTPUTS:
+    Current Configuration File
+    '''
+    config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
+    config              = config_file.get()
+    framerate           = config["current_framerate"]
+    if not current_time:
+        current_time = 0
+    config["frame_end"] = int(round(current_time * framerate))
+    config_file.set(config)
+    label_str = [html.P("Press ADD LABEL to add the following to the DataBase: \n"),
+                html.P("frame_start : {} ( {} seconds)".format(config["frame_start"], config["frame_start"]/framerate)),
+                html.P("frame_end : {} ( {} seconds)".format(config["frame_end"], config["frame_end"]/framerate)),
+                html.P("label : {}".format(label))]
+    config_str = [html.P("{} : {} \n".format(k,v)) for k,v in config.items()]
+    return label_str + config_str
 
 if __name__ == '__main__':
     app.run_server(debug=True)

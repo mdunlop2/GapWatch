@@ -20,7 +20,7 @@ import common.data.labels.frame_sqlite_utils as squ
 
 if __name__ == "__main__":
     table_name = "data"
-    frame_id = "/home/matthew/Documents/GapWatch/common/data/labels/app/static/b.mp4_0003000"
+    frame_id = "/home/matthew/Documents/GapWatch/common/data/labels/app/static/3.mp4_0000001"
     frame_col_name = "frame"
     label_col_name = "label"
     FRAMES_DB = "/home/matthew/Documents/GapWatch/common/data/labels/app/frames.db"

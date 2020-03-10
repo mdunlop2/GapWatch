@@ -82,7 +82,6 @@ def update_label_array( connex,
                                                                          frame_col_name,
                                                                          ','.join(['?']*len(frame_ids)))
     
-    print(sql_update_query)
     cursor.execute(sql_update_query, frame_ids)
     print("Table: {} updated!".format(table_name))
     connex.commit()
