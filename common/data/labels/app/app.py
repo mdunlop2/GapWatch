@@ -9,10 +9,12 @@ import argparse
 import cv2
 import sys
 import os
+import time
 from pathlib import Path
 
 import pandas as pd
 import sqlite3
+from sqlite3 import Error
 # Add the git root directory to python path
 sys.path.insert(0,os.getcwd())
 app_file_parent_path = Path(__file__).absolute().parent
@@ -49,15 +51,32 @@ default_properties = {
     "frame_start"          : 0,
     "last_video_url"      : "",
     "last_label"          : labels[0],
-    "current_framerate"   : 0
+    "current_framerate"   : 0,
+    "author"              : "Default"
 }
 
 # Set the column name for VIDEO_URLS_FILE
 COLNAME = "gap_video_locs"
 
-# Set the column name for FRAME_URLS_FILE
+# Set the column name for FRAME_URLS_FILE and labels database
 FRAME_COLNAME = "frame"
 LABEL_COLNAME = "label"
+VIDEO_URL_COLNAME = "video_url"
+AUTHOR_COLNAME = "author"
+TIMESTAMP_COLNAME = "timestamp"
+FRAME_START_COLNAME = "frame_start"
+FRAME_END_COLNAME = "frame_end"
+
+# dictionary with required parameters for the SQLite label table
+label_table_model = {
+        VIDEO_URL_COLNAME : "text",
+        FRAME_START_COLNAME : "integer",
+        FRAME_END_COLNAME : "integer",
+        LABEL_COLNAME : "text",
+        AUTHOR_COLNAME : "text",
+        TIMESTAMP_COLNAME : "timestamp"
+}
+
 
 # Set the padding level to use.
 PAD = 7
@@ -117,9 +136,23 @@ FRAME_URLS_FILE_LOC = os.path.join(app_file_parent_path, "frame_urls.csv")
 # Ensure the sqlite database for labels exists
 FRAMES_DB = os.path.join(app_file_parent_path, "frames.db")
 connex = sqlite3.connect(FRAMES_DB, check_same_thread=False)  # Opens file if exists, else creates file
-cur = connex.cursor()                # Send messages and receive results
+cursor = connex.cursor()                # Send messages and receive results
 table_name = "data"                  # Specify the table name
-
+# Ensure the table exists in the database
+create_table = '''
+                CREATE TABLE IF NOT EXISTS "{}" (
+                    {}
+                )
+               '''.format(table_name,
+                          ','.join([str(str(k) + " " + str(v)) for k,v in label_table_model.items()]))
+try:
+    cursor.execute(create_table)
+    print("trying to create table with following schema: \n{}".format(','.join([str(str(k) + " " + str(v)) for k,v in label_table_model.items()])))
+    connex.commit()
+    print("Successfully written to table: {} \nLast row: {}".format(table_name,
+                                                                    cursor.lastrowid))
+except Error as e:
+    print(e)
 # Get CSS stylesheets
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -216,19 +249,19 @@ def load_all():
     # generate the index of videos to be used
     gi.generate_index(STATIC_SHORTCUT_LOC, VIDEO_URLS_FILE_LOC, COLNAME)
     # generate the index of frames with labels from videos in the index.
-    flu.generate_frame_labels(VIDEO_URLS_FILE_LOC,
-                              COLNAME,
-                              FRAME_URLS_FILE_LOC,
-                              OUT_LOC_FRAME_COLNAME=FRAME_COLNAME,
-                              OUT_LOC_LABEL_COLNAME=LABEL_COLNAME,
-                              PAD=PAD)
+    # flu.generate_frame_labels(VIDEO_URLS_FILE_LOC,
+    #                           COLNAME,
+    #                           FRAME_URLS_FILE_LOC,
+    #                           OUT_LOC_FRAME_COLNAME=FRAME_COLNAME,
+    #                           OUT_LOC_LABEL_COLNAME=LABEL_COLNAME,
+    #                           PAD=PAD)
     # setup the SQLite database for read/writes of labels from the tool
-    for chunk in pd.read_csv(FRAME_URLS_FILE_LOC, chunksize=1024**2):
-        chunk.to_sql(name=table_name,
-                     con=connex,
-                     if_exists="append",
-                     index=False)
-    connex.commit()
+    # for chunk in pd.read_csv(FRAME_URLS_FILE_LOC, chunksize=1024**2):
+    #     chunk.to_sql(name=table_name,
+    #                  con=connex,
+    #                  if_exists="append",
+    #                  index=False)
+    # connex.commit()
     # save configuration
     config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
     config = config_file.get()
@@ -339,16 +372,31 @@ def write_label(n, current_time, current_label):
     framerate   = config["current_framerate"]
     frame_start = config["frame_start"]
     current_video_url = config["current_video_url"]
+    label_author = config["author"]
     frame_end   = int(round(current_time * framerate))
-    squ.update_label_array(
+    # squ.update_label_array(
+    #     connex,
+    #     table_name,
+    #     LABEL_COLNAME,
+    #     FRAME_COLNAME,
+    #     current_video_url,
+    #     frame_start,
+    #     frame_end,
+    #     current_label
+    # )
+    label_dic = {
+        VIDEO_URL_COLNAME : current_video_url,
+        FRAME_START_COLNAME : frame_start,
+        FRAME_END_COLNAME : frame_end,
+        LABEL_COLNAME : current_label,
+        AUTHOR_COLNAME : label_author,
+        TIMESTAMP_COLNAME : time.time()
+    }
+    squ.insert_label(
         connex,
         table_name,
-        LABEL_COLNAME,
-        FRAME_COLNAME,
-        current_video_url,
-        frame_start,
-        frame_end,
-        current_label
+        [k for k in label_dic.keys()],
+        [v for v in label_dic.values()]
     )
     # reset the frame_start to current frame
     config["frame_start"] = frame_end

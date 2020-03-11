@@ -16,6 +16,7 @@ import cv2
 
 # data tools
 import sqlite3
+from sqlite3 import Error
 
 def initialise_db(df, connex, name="data"):
     '''
@@ -85,6 +86,37 @@ def update_label_array( connex,
     cursor.execute(sql_update_query, frame_ids)
     print("Table: {} updated!".format(table_name))
     connex.commit()
+
+def insert_label( connex,
+                  table_name,
+                  colnames,
+                  colvals):
+    '''
+    INPUTS
+    connex
+    table_name
+    colnames
+    colvals
+
+    DOES:
+    Writes the column values (colvals) to the database table (table_name)
+    according to their respective column names (colnames)
+
+    Thus changes to the database model should not require a change to this function
+    '''
+    cursor = connex.cursor()
+    sql = ''' INSERT INTO "{}"({})
+              VALUES({}) '''.format(table_name,
+                                    ','.join(colnames),
+                                    ','.join(['?']*len(colnames)))
+    try:
+        cursor.execute(sql, colvals)
+        connex.commit()
+        print("Successfully written to table: {} \nLast row: {}".format(table_name,
+                                                                        cursor.lastrowid))
+    except Error as e:
+        print(e)
+        
 
 def read_label(connex,
                table_name,
