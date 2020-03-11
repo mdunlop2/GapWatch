@@ -374,16 +374,6 @@ def write_label(n, current_time, current_label):
     current_video_url = config["current_video_url"]
     label_author = config["author"]
     frame_end   = int(round(current_time * framerate))
-    # squ.update_label_array(
-    #     connex,
-    #     table_name,
-    #     LABEL_COLNAME,
-    #     FRAME_COLNAME,
-    #     current_video_url,
-    #     frame_start,
-    #     frame_end,
-    #     current_label
-    # )
     label_dic = {
         VIDEO_URL_COLNAME : current_video_url,
         FRAME_START_COLNAME : frame_start,
