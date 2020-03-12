@@ -71,7 +71,7 @@ def video_to_frames(video_url,
     images = np.zeros((num_frames, target_size[0], target_size[1], 3))
     # generate the index of frames to sample
     # we wish to sample uniformly across the clip
-    idx_array = np.round(np.linspace(frame_start, frame_end, num_frames, endpoint = True)).astype("int")
+    idx_array = np.round(np.linspace(frame_start+1, frame_end, num_frames, endpoint = False)).astype("int")
     start = time.time()
     print("Reading {} .mp4 file and \nextracting {} frames between frame {} and {}".format(video_url, num_frames, frame_start, frame_end))
     with progressbar.ProgressBar(max_value=num_frames) as bar:
