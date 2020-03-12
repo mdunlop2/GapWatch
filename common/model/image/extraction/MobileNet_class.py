@@ -2,6 +2,12 @@
 This script will create a Tensorflow TFRecord to store
 the extracted class from the MobileNetv2 model when
 fed batches of frames from video clips
+
+    # eg
+    # VIDEO_URL   : /home/matthew/Documents/GapWatch_Videos/0.mp4
+    # NUM_FRAMES  : 30
+    # FRAME_START : 0
+    # FRAME_END   : 1000
 '''
 
 # include standard modules
@@ -57,7 +63,7 @@ def video_to_frames(video_url,
     target_size : Tuple
 
     OUTPUT:
-    array
+    array       : (num_frames, target_size[0], target_size[1], 3)
     '''
     # open the video
     video = cv2.VideoCapture(video_url)
@@ -101,26 +107,36 @@ def batch_class_inference(model,
 
     NOTES:
     [12 Mar 2020] Mobilenet Max batch size 256, run out of RAM
-                    (8.76GB used before script start)
+                (8.76GB used before script start, 16GB total, 67MB swap used)
     '''
     start = time.time()
     preds = model.predict(image_batch, batch_size=image_batch.shape[0])
     print("{} images successfully labelled in {} seconds".format(image_batch.shape[0], time.time()-start))
     return preds
 
-# attempt to feature extract:
-model = MobileNet(weights='imagenet', include_top=True)
+
+if __name__ == "__main__":
+    # initiate the parser
+    parser = argparse.ArgumentParser()
+
+    # add arguments
+    parser.add_argument("VIDEO_URL", help="locations of .mp4  file")
+    parser.add_argument("NUM_FRAMES", help="Number of frames to sample uniformly")
+    parser.add_argument("FRAME_START", help="First frame to sample from .mp4  file")
+    parser.add_argument("FRAME_END", help="First frame to sample from .mp4  file")
+
+    # Demo: Use Mobilenet
+    model = MobileNet(weights='imagenet', include_top=True)
+
+    # read arguments from the command line
+    args = parser.parse_args()
 
 
-x = video_to_frames("/home/matthew/Documents/GapWatch_Videos/0.mp4",
-                    0,
-                    1000,
-                    30,
-                    target_size = (224,224))
-
-
-preds = batch_class_inference(model, x)
-
-
-
-
+    image_batch = video_to_frames(
+                        args.VIDEO_URL,
+                        int(float(args.FRAME_START)),
+                        int(float(args.FRAME_END)),
+                        int(args.NUM_FRAMES),
+                        target_size = (224,224))
+    preds = batch_class_inference(model, image_batch)
+    print("Prediction Shape: {}".format(preds.shape))
