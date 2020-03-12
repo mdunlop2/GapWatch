@@ -124,7 +124,9 @@ except:
         print("{} did not exist but the {} directory did. \nIt will now be created.".format(CONFIG_LOC, CONFIG_FILE_LOC))
 
 config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
-config = config_file.get() 
+config = config_file.get()
+url_df = pd.read_csv(config["video_urls_file_loc"])
+num_vids = len(url_df)
 print("Config read successful.")
 
 # Ensure video_urls.csv exists
@@ -311,9 +313,7 @@ def next_footage(footage, current_time):
     current_pos       = config["current_video_pos"]
     next_footage_step = config["next_footage_step"]
     last_video_url    = config["current_video_url"]
-
-    url_df = pd.read_csv(config["video_urls_file_loc"])
-    new_pos = (current_pos + next_footage_step ) % (len(url_df))
+    new_pos = (current_pos + next_footage_step ) % (num_vids)
     # find the video corresponding to new_pos
     full_url = url_df.at[new_pos, COLNAME]
     # must change so that it only refers to the static folder (limitation of Dash)
@@ -423,7 +423,8 @@ def status_update(n, current_time, label):
     label_str = [html.P("Press ADD LABEL to add the following to the DataBase: \n"),
                 html.P("frame_start : {} ( {} seconds)".format(config["frame_start"], config["frame_start"]/framerate)),
                 html.P("frame_end : {} ( {} seconds)".format(config["frame_end"], config["frame_end"]/framerate)),
-                html.P("label : {}".format(label))]
+                html.P("label : {}".format(label)),
+                html.P("Video {} of {}".format(config["current_video_pos"]+1, num_vids))]
     config_str = [html.P("{} : {} \n".format(k,v)) for k,v in config.items()]
     return label_str + config_str
 
