@@ -67,11 +67,13 @@ def video_to_frames(video_url,
     '''
     # open the video
     video = cv2.VideoCapture(video_url)
+    # get framerate
+    FRAMERATE = int(video.get(cv2.CAP_PROP_FPS))
     # storage for output vector
     images = np.zeros((num_frames, target_size[0], target_size[1], 3))
     # generate the index of frames to sample
     # we wish to sample uniformly across the clip
-    idx_array = np.round(np.linspace(frame_start+1, frame_end, num_frames, endpoint = False)).astype("int")
+    idx_array = np.round(np.linspace(frame_start+1, frame_end-1, num_frames, endpoint = True)).astype("int")
     start = time.time()
     print("Reading {} .mp4 file and \nextracting {} frames between frame {} and {}".format(video_url, num_frames, frame_start, frame_end))
     with progressbar.ProgressBar(max_value=num_frames) as bar:
@@ -79,10 +81,26 @@ def video_to_frames(video_url,
             # get the frame number
             frame_number = idx_array[idx]
             # get the frame
-            video.set(cv2.CAP_PROP_POS_FRAMES, frame_number-1)
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
             res, image = video.read()
             # resize to desired dimension
-            image = cv2.resize(image, target_size, interpolation=cv2.INTER_CUBIC)
+            try:
+                image = cv2.resize(image, target_size, interpolation=cv2.INTER_CUBIC)
+            except:
+                print("Unable to find image in frame {}! Trying next frame".format(frame_number))
+                try:
+                    video.set(cv2.CAP_PROP_POS_FRAMES, frame_number+1)
+                    res, image = video.read()
+                    image = cv2.resize(image, target_size, interpolation=cv2.INTER_CUBIC)
+                except:
+                    print("Unable to find image in frame {}. \n Trying previous frame".format(frame_number +1))
+                    try:
+                        video.set(cv2.CAP_PROP_POS_FRAMES, frame_number+1)
+                        res, image = video.read()
+                        image = cv2.resize(image, target_size, interpolation=cv2.INTER_CUBIC)
+                    except:
+                        print("Unable to find image.")
+                        break
             # convert to numpy
             image = img_to_array(image)
             # expand dims
@@ -92,7 +110,7 @@ def video_to_frames(video_url,
             images[idx,:,:,:] = image
             bar.update(idx)
     print("{} Frames written in {:.3f} seconds".format(num_frames, time.time()-start))
-    return images
+    return images, idx_array, FRAMERATE
 
 def batch_class_inference(model,
                           image_batch):

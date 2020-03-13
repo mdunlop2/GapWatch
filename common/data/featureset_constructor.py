@@ -39,6 +39,7 @@ import common.data.labels.generate_index as gi
 import common.data.labels.frame_label_utils as flu
 import common.data.labels.frame_sqlite_utils as squ
 import common.model.image.extraction.MobileNet_class as mc
+import common.model.audio.audio_features as af
 from common.data.labels.app.config_utils import JSONPropertiesFile
 
 ### TEMPORARY ###
@@ -68,13 +69,15 @@ def featureset_construct(DATABASE,
                          W,
                          X,
                          Y,
-                         labels,
+                         TRAIL,
+                         labels
                          ):
     '''
     INPUTS:
     DATABASE    : .db file created by common/data/labels/app/app.py
     NUM_SAMPLES : Total number of samples to include in the dataset (all classes)
     STORE       : Folder in which to store the output dataset
+    TRAIL       : Maximum length of audio prior to frame to use (seconds)
     W           : Number of MFCC features to include
     X           : Number of LTP features to include
     Y           : Number of Image Features features to include 
@@ -107,8 +110,8 @@ def featureset_construct(DATABASE,
     # so that we sample uniformly from each and still have
     # balanced number of frames for each class
     unique, counts = np.unique(label_data[:,3], return_counts=True)
-    frame_target = np.floor(NUM_SAMPLES/len(labels))
-    batch_size = np.round(frame_target/counts)
+    frame_target = np.floor(NUM_SAMPLES/len(labels)) # total frames per class
+    batch_size = np.round(frame_target/counts) # batch size for each class
     print("Labels: {} \nCounts: {} \nClip Frames: {}".format(unique, counts, batch_size))
     batch_ref = dict(zip(unique, batch_size))
     # first initiate the keras model
@@ -117,17 +120,28 @@ def featureset_construct(DATABASE,
         # get our label
         label = label_data[i,3]
         # now obtain the features for each batch and write to csv file
-        image_batch = mc.video_to_frames(
-                        label_data[i,0],
-                        int(label_data[i,1]),
-                        int(label_data[i,2]),
-                        int(batch_ref[label]),
-                        target_size = (224,224))
+        image_batch, frames, frame_rate = mc.video_to_frames(
+                                        label_data[i,0],
+                                        int(label_data[i,1]),
+                                        int(label_data[i,2]),
+                                        int(batch_ref[label]),
+                                        target_size = (224,224))
         preds = mc.batch_class_inference(model, image_batch)
-        # Attempt to extract audio features
-        for vec in preds:
-            vec = ",".join([str(v) for v in vec])
-            csv.write("{},{}\n".format(label, vec))
+        # Attempt to extract audio features and write to csv
+        for j in range(len(frames)):
+            # put class vectors in csv format
+            class_vec = preds[j]
+            class_vec = ",".join([str(v) for v in class_vec])
+            # obtain audio features
+            print("Frame: {} Second: {}".format(frames[j], frames[j]/frame_rate))
+            mfcc_vec  = af.get_mfccs(
+                                    label_data[i,0],
+                                    frames[j],
+                                    frame_rate,
+                                    W,
+                                    trail = TRAIL)
+            mfcc_vec = ",".join([str(m) for m in mfcc_vec])
+            csv.write("{},{},{}\n".format(label, class_vec, mfcc_vec))
     csv.close
     return label_data
     
@@ -143,6 +157,7 @@ if __name__ == "__main__":
     parser.add_argument("W", help="Number of MFCC features to include")
     parser.add_argument("X", help="Number of LTP features to include")
     parser.add_argument("Y", help="Number of Image Features features to include \nNOT YET IMPLEMENTED!")
+    parser.add_argument("-TRAIL", default=5, help="Maximum length of audio prior to frame to use (seconds)")
     # read arguments from the command line
     args = parser.parse_args()
     
@@ -152,6 +167,7 @@ if __name__ == "__main__":
                                         int(float(args.W)),
                                         int(float(args.X)),
                                         int(float(args.Y)),
-                                        labels,
+                                        args.TRAIL,
+                                        labels
                                         )
     print(label_data.shape)
