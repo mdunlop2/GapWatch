@@ -7,5 +7,5 @@
 *config.json
 *.db
 *.csv
+*.wav
 common/data/labels/__pycache__/frame_sqlite_utils.cpython-37.pyc
-

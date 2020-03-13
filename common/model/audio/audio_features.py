@@ -42,16 +42,21 @@ def extract_audio(video_url,
     current_time = int(np.ceil(frame/frame_rate)) # current time in seconds
     start_seconds = max(0, current_time - trail)
     print("Start: {} seconds \nEnd: {} seconds".format(start_seconds, current_time))
-    temp_file_name = "/home/matthew/Documents/test.mp4"
-    ffmpeg_cmd_1 = ["ffmpeg", "-ss", str(start_seconds),
+    temp_file_name = os.path.join(Path(__file__).absolute().parent, "temp.wav")
+    ffmpeg_cmd = ["ffmpeg", "-ss", str(start_seconds),
                     "-i", video_url, "-to", str(current_time),
-                    temp_file_name]
-    subprocess.call(ffmpeg_cmd_1)
-    # now convert the temporary file to .wav
-    ffmpeg_cmd_2 = ["ffmpeg", "-i", temp_file_name, "-ab", "160k",
+                    "-ab", "160k",
                     "-ac", "2", "-ar", "44100", "-vn",
-                    temp_file_name.replace('mp4', 'wav')]
-    subprocess.call(ffmpeg_cmd_2)
+                    temp_file_name]
+    # We want to continually rewrite the same temporary file
+    p = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE,
+                         stdin=subprocess.PIPE)
+    # Will be asked if we want to over-write the existing
+    p.stdin.write(b'y')
+    # now load into librosa and return the librosa object
+    audio, sample_rate = librosa.load(temp_file_name, res_type='kaiser_fast')
+    return audio, sample_rate
 
 if __name__ == "__main__":
     # initiate the parser
@@ -63,7 +68,8 @@ if __name__ == "__main__":
     parser.add_argument("FRAME", help="current frame of the video file")
 
     args = parser.parse_args()
-    extract_audio(args.VIDEO_URL,
-                  int(float(args.FRAME)),
-                  int(float(args.FRAME_RATE)),
-                  trail = 5)
+    audio, sample_rate = extract_audio( args.VIDEO_URL,
+                                        int(float(args.FRAME)),
+                                        int(float(args.FRAME_RATE)),
+                                        trail = 5)
+    print("Successfully loaded audio. Sample Rate: {}".format(sample_rate))
