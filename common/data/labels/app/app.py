@@ -43,6 +43,7 @@ dummy_url = "static/1.mp4"
 # Default fields for the application (move to a configuration file created on startup)
 default_properties = {
     'current_video_pos'   : 0,
+    'num_vids'            : 0,
     'current_video_url'   : "",
     'next_footage_step'   : 1,
     'video_urls_file_loc' : '',
@@ -122,12 +123,6 @@ except:
         print("{} already exists.".format(CONFIG_FILE_LOC))
     except IOError:
         print("{} did not exist but the {} directory did. \nIt will now be created.".format(CONFIG_LOC, CONFIG_FILE_LOC))
-
-config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
-config = config_file.get()
-url_df = pd.read_csv(config["video_urls_file_loc"])
-num_vids = len(url_df)
-print("Config read successful.")
 
 # Ensure video_urls.csv exists
 VIDEO_URLS_FILE_LOC = os.path.join(app_file_parent_path, "video_urls.csv")
@@ -271,6 +266,8 @@ def load_all():
     config["frame_urls_file_loc"] = FRAME_URLS_FILE_LOC
     config["frame_db_loc"]        = FRAMES_DB
     config["last_video_url"]      = config["current_video_url"]
+    url_df = pd.read_csv(VIDEO_URLS_FILE_LOC)
+    config["num_vids"]            = len(url_df)
     config_file.set(config)
 
     
@@ -313,6 +310,8 @@ def next_footage(footage, current_time):
     current_pos       = config["current_video_pos"]
     next_footage_step = config["next_footage_step"]
     last_video_url    = config["current_video_url"]
+    num_vids          = config["num_vids"]
+    url_df = pd.read_csv(config["video_urls_file_loc"])
     new_pos = (current_pos + next_footage_step ) % (num_vids)
     # find the video corresponding to new_pos
     full_url = url_df.at[new_pos, COLNAME]
@@ -416,6 +415,7 @@ def status_update(n, current_time, label):
     config_file = JSONPropertiesFile(CONFIG_FILE_LOC, default_properties)
     config              = config_file.get()
     framerate           = config["current_framerate"]
+    num_vids            = config["num_vids"]
     if not current_time:
         current_time = 0
     config["frame_end"] = int(round(current_time * framerate))
