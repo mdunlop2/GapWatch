@@ -32,7 +32,7 @@ app_file_parent_path = Path(__file__).absolute().parent
 # Model Related Imports
 import keras
 from keras.applications.mobilenet import MobileNet
-from keras.applications.resnet50 import preprocess_input, decode_predictions
+from keras.applications.mobilenet import preprocess_input, decode_predictions
 from keras.preprocessing.image import img_to_array
 from keras.models import Model
 
