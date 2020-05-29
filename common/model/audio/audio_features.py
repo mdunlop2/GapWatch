@@ -40,7 +40,7 @@ def extract_audio(video_url,
     '''
     # first work out which segment of audio we are interested in
     current_time = int(np.round(frame/frame_rate)) # current time in seconds
-    # check if we have ndpoint of the video
+    # check if we have endpoint of the video
     
     start_seconds = max(0, current_time - trail)
     if (start_seconds == 0) or (current_time-start_seconds < 2):
