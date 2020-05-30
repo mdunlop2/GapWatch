@@ -1,7 +1,7 @@
 '''
-FEATURESET CONSTRUCTOR
+MOBILENET FEATURESET CONSTRUCTOR
 
-The purpose of this file is to create a TFRecord containing
+The purpose of this file is to create a csv file containing
 the desired image features and audio features.
 
 The Machine Learning and Data Science workflows should be applied
@@ -26,19 +26,13 @@ import cv2
 sys.path.insert(0,os.getcwd())
 app_file_parent_path = Path(__file__).absolute().parent
 
-# Model Related Imports
-import keras
-from keras.applications.mobilenet import MobileNet
-from keras.applications.resnet50 import preprocess_input, decode_predictions
-from keras.preprocessing.image import img_to_array
-from keras.models import Model
-
 # Custom Scripts:
 import common.data.labels.app.label_utils as lu
 import common.data.labels.generate_index as gi
 import common.data.labels.frame_label_utils as flu
 import common.data.labels.frame_sqlite_utils as squ
 import common.model.image.extraction.MobileNet_class as mc
+import common.model.image.extraction.basic_image_features as bif
 import common.model.audio.audio_features as af
 from common.data.labels.app.config_utils import JSONPropertiesFile
 
@@ -67,8 +61,6 @@ def featureset_construct(DATABASE,
                          NUM_SAMPLES,
                          STORE,
                          W,
-                         X,
-                         Y,
                          TRAIL,
                          labels
                          ):
@@ -103,8 +95,8 @@ def featureset_construct(DATABASE,
     # NOTE: Big changes required to this if multiple authors implemented!
     cur.execute(label_sql)
     label_data = np.array(cur.fetchall())
-    # open csv file to dump features
-    csv = open(STORE, "w")
+    # NOTE: temporarily take saubset
+    label_data = label_data[1:7,:]
     # loop over labels
     # want to find how many clips there are
     # so that we sample uniformly from each and still have
@@ -115,7 +107,6 @@ def featureset_construct(DATABASE,
     print("Labels: {} \nCounts: {} \nClip Frames: {}".format(unique, counts, batch_size))
     batch_ref = dict(zip(unique, batch_size))
     # first initiate the keras model
-    model = MobileNet(weights='imagenet', include_top=True)
     for i in range(len(label_data[:,0])):
         # get our label
         label = label_data[i,3]
@@ -126,12 +117,14 @@ def featureset_construct(DATABASE,
                                         int(label_data[i,2]),
                                         int(batch_ref[label]),
                                         target_size = (224,224))
-        preds = mc.batch_class_inference(model, image_batch)
+        image_features = bif.basic_image_features(image_batch)
         # Attempt to extract audio features and write to csv
         for j in range(len(frames)):
+            # open csv file to dump features
+            csv = open(STORE, "a")
             # put class vectors in csv format
-            class_vec = preds[j]
-            class_vec = ",".join([str(v) for v in class_vec])
+            img_vec = image_features[j]
+            img_vec = ",".join([str(v) for v in img_vec])
             # obtain audio features
             print("Frame: {} Second: {}".format(frames[j], frames[j]/frame_rate))
             mfcc_vec  = af.get_mfccs(
@@ -141,8 +134,8 @@ def featureset_construct(DATABASE,
                                     W,
                                     trail = TRAIL)
             mfcc_vec = ",".join([str(m) for m in mfcc_vec])
-            csv.write("{},{},{}\n".format(label, class_vec, mfcc_vec))
-    csv.close
+            csv.write("{},{},{},{}\n".format(label,label_data[i,0],img_vec, mfcc_vec))
+            csv.close
     return label_data
     
 
@@ -151,12 +144,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # add arguments
-    parser.add_argument("DATABASE", help="SQLite Database of labelled videos")
-    parser.add_argument("NUM_SAMPLES", help="Total Dataset Size")
-    parser.add_argument("STORE", help="Folder in which to store the output dataset")
-    parser.add_argument("W", help="Number of MFCC features to include")
-    parser.add_argument("X", help="Number of LTP features to include")
-    parser.add_argument("Y", help="Number of Image Features features to include \nNOT YET IMPLEMENTED!")
+    parser.add_argument("-DATABASE", help="SQLite Database of labelled videos")
+    parser.add_argument("-NUM_SAMPLES", help="Total Dataset Size")
+    parser.add_argument("-STORE", help="Folder in which to store the output dataset")
+    parser.add_argument("-W", help="Number of MFCC features to include")
     parser.add_argument("-TRAIL", default=5, help="Maximum length of audio prior to frame to use (seconds)")
     # read arguments from the command line
     args = parser.parse_args()
@@ -165,9 +156,7 @@ if __name__ == "__main__":
                                         int(float(args.NUM_SAMPLES)),
                                         args.STORE,
                                         int(float(args.W)),
-                                        int(float(args.X)),
-                                        int(float(args.Y)),
-                                        args.TRAIL,
+                                        int(float(args.TRAIL)),
                                         labels
                                         )
     print(label_data.shape)

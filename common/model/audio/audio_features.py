@@ -43,12 +43,16 @@ def extract_audio(video_url,
     # check if we have endpoint of the video
     
     start_seconds = max(0, current_time - trail)
-    if (start_seconds == 0) or (current_time-start_seconds < 2):
-        print("Start: {} End: {} \nAudio Clip too short - increasing to 2 seconds".format(start_seconds, current_time))
+    if (start_seconds == 0) or (current_time-start_seconds < trail):
+        print("Start: {} End: {} \nAudio Clip too short - increasing to {} seconds".format(start_seconds, current_time, trail))
         current_time = start_seconds + 2 # prevent 1 second tracks appearing
+        altered = True
+    else:
+        altered = False
     print("Start: {} seconds \nEnd: {} seconds".format(start_seconds, current_time))
     temp_file_name = os.path.join(Path(__file__).absolute().parent, "temp.wav")
     ffmpeg_cmd = ["ffmpeg",
+                    "-hide_banner","-loglevel", "warning",
                     "-i", video_url,
                     "-ss", str(start_seconds),
                     "-to", str(current_time),
@@ -76,6 +80,7 @@ def extract_audio(video_url,
     #     # file deletions appear to fail sometimes
     #     os.remove(temp_file_name)
     #     time.sleep(0.01)
+    # check if it was altered and adjust the array as necessary
     return audio, sample_rate
 
 def get_mfccs(video_url,

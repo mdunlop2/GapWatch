@@ -59,6 +59,10 @@ def video_to_frames(video_url,
     array of the images with the correct size
     INPUTS:
     video_url   : String
+    frame_start : Starting Frame Number
+    frame_end   : Ending Frame Number
+                    - if False:
+                        We use the last frame in the video
     num_frames  : Integer
     target_size : Tuple
 
@@ -67,6 +71,10 @@ def video_to_frames(video_url,
     '''
     # open the video
     video = cv2.VideoCapture(video_url)
+    # check if endpoint supplied
+    if not frame_end:
+        # no endpoint supplied so infer form video
+        frame_end = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
     # get framerate
     FRAMERATE = int(video.get(cv2.CAP_PROP_FPS))
     # storage for output vector
