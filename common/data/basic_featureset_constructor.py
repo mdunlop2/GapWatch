@@ -71,9 +71,6 @@ def featureset_construct(DATABASE,
     STORE       : Folder in which to store the output dataset
     TRAIL       : Maximum length of audio prior to frame to use (seconds)
     W           : Number of MFCC features to include
-    X           : Number of LTP features to include
-    Y           : Number of Image Features features to include 
-                   (NOT YET IMPLEMENTED!)
     '''
     connex = sqlite3.connect(DATABASE, check_same_thread=False)
     cur = connex.cursor()
@@ -95,8 +92,6 @@ def featureset_construct(DATABASE,
     # NOTE: Big changes required to this if multiple authors implemented!
     cur.execute(label_sql)
     label_data = np.array(cur.fetchall())
-    # NOTE: temporarily take saubset
-    label_data = label_data[1:7,:]
     # loop over labels
     # want to find how many clips there are
     # so that we sample uniformly from each and still have
@@ -106,7 +101,6 @@ def featureset_construct(DATABASE,
     batch_size = np.round(frame_target/counts) # batch size for each class
     print("Labels: {} \nCounts: {} \nClip Frames: {}".format(unique, counts, batch_size))
     batch_ref = dict(zip(unique, batch_size))
-    # first initiate the keras model
     for i in range(len(label_data[:,0])):
         # get our label
         label = label_data[i,3]
