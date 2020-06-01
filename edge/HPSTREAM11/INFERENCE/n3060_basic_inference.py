@@ -2,7 +2,9 @@
 Perform inference using the HP Stream and the basic logistic regression model
 which was trained in common/model/training/n3060_basic/n3060_basic.ipynb
 '''
-
+# disable warnings
+import warnings
+warnings.filterwarnings("ignore")
 
 # imports
 import numpy as np
@@ -59,7 +61,10 @@ if __name__=="__main__":
     FPS = 60               # initial target audio FPS
     CHUNK = int(RATE/FPS)  # how many samples to listen for each time prediction attempted
     n_mfcc = 10            # number of MFCC components
-    n_sec = 5              # number of seconds to record test audio
+    n_sec = 1              # number of seconds to record test audio
+
+    # model specific parameters
+    l = -np.log(0.5)/60 # time weighting. 1 minute = 50% weight
 
     ## initialise camera
     cap = cv2.VideoCapture(0)
@@ -108,12 +113,36 @@ if __name__=="__main__":
                 break
             # resize image to model format
             frame = cv2.resize(frame, (224,224), interpolation=cv2.INTER_CUBIC)
-            print(frame.shape)
             # perform image feature extraction
             image_feats = basic_image_features(np.expand_dims(frame, axis=0))
-            print(image_feats)
+            # print("img feats shape: ",image_feats.shape)
             # gather audio data
             mfccs = soundplot(stream)
+            # print("mfccs     shape: ",mfccs.shape)
+            # join the features together in the correct format
+            X = np.concatenate((np.squeeze(image_feats), mfccs)).reshape(1,-1)
+            # print("X         shape: ",X.shape)
+            # perform moving average standardisation
+            # if this is the first frame, set mean, variance to the first frame (arbitrarily)
+            # since zero varaince would trigger errors (and not be very good for predictions)
+            if frames==0:
+                ema_mean = X
+                # this variance estimate is wrong but this first frame should be disregarded 
+                ema_var  = np.ones((len(X))).reshape(1,-1) 
+                frame_time = time.time()
+                total_FPS = np.NaN
+                frames+=1
+            else:
+                ema_mean = update_ema(l, ema_mean, X, frame_time, time.time())
+                ema_var  = update_ema(l, ema_var  , (X-ema_mean)**2, frame_time, time.time())
+                total_FPS = 1/(time.time()-frame_time)
+                frame_time = time.time()
+                frames+=1
+            # standardise data
+            X_std = (X-ema_mean)/np.sqrt(ema_var)
+            # perform inference
+            p = clf.predict_proba(X_std)
+            print("Danger Probability: {} FPS: {}".format(p[0,1], total_FPS), flush=True)
         except KeyboardInterrupt:
             break
 
