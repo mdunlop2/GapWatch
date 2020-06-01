@@ -9,8 +9,12 @@ warnings.filterwarnings("ignore")
 # imports
 import numpy as np
 import matplotlib.pyplot as plt
-import joblib, cv2, pyaudio, time, librosa, argparse, os, sys
+import joblib, cv2, pyaudio, time, librosa, argparse, os, sys, logging
 from pathlib import Path
+
+# arduino
+import pyfirmata
+board = pyfirmata.Arduino('/dev/ttyACM0')
 
 # custom image extractors
 # Add the git root directory to python path
@@ -46,12 +50,14 @@ def update_ema(lam, S, X, t1, t2):
 
 
 if __name__=="__main__":
+    # setup logging
+    logging.basicConfig(filename='n3060.log', level=logging.DEBUG)
     # parse any input arguments
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("plot", default=False,
+    parser.add_argument("-plot", default=False,
                         help="Enable to view the demo plots as windows, default is False")
-    parser.add_argument("t", default=0.5,
+    parser.add_argument("-t", default=0.5,
                         help="The threshold for which to classify the image, default is 0.5")
 
     args = parser.parse_args()
@@ -65,6 +71,7 @@ if __name__=="__main__":
 
     # model specific parameters
     l = -np.log(0.5)/60 # time weighting. 1 minute = 50% weight
+    t = float(args.t)
 
     ## initialise camera
     cap = cv2.VideoCapture(0)
@@ -143,6 +150,12 @@ if __name__=="__main__":
             # perform inference
             p = clf.predict_proba(X_std)
             print("Danger Probability: {} FPS: {}".format(p[0,1], total_FPS), flush=True)
+            logging.info("Danger Probability: {} FPS: {}".format(p[0,1], total_FPS))
+            if p[0,1] > t:
+                # we have danger!
+                board.digital[13].write(1)
+            else:
+                board.digital[13].write(0)
         except KeyboardInterrupt:
             break
 
