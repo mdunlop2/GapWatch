@@ -1,8 +1,11 @@
 '''
-MOBILENET FEATURESET CONSTRUCTOR
+BASIC FEATURESET CONSTRUCTOR
 
 The purpose of this file is to create a csv file containing
 the desired image features and audio features.
+
+In particular, we will use the MFCCs and image moments outlined in the Readme.md
+for this directory.
 
 The Machine Learning and Data Science workflows should be applied
 directly to the output of this script
