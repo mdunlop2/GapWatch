@@ -12,7 +12,7 @@ Run the following from the project root directory to start the application.
 python common/data/labels/app/app.py /home/matthew/Documents/video_sample/100_test --PLAYBACK_RATE 5
 ```
 
-First (and required) option is the directory containing the mp4 videos. Here, I have stored my videos in `/home/matthew/Documents/video_sample/100_test`
+First (and required) argument is the directory containing the mp4 videos. Here, I have stored my videos in `/home/matthew/Documents/video_sample/100_test`
 
 Since the aim of this project is to label individual frames and provide inference on live frames from a camera, it is crucial to have some labeled frames to train models and investigate their robustness to unseen videos.
 
