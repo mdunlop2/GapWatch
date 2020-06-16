@@ -103,7 +103,7 @@ Going forward, if this project is funded and multiple author labeling is desired
 
 #### Storage
 
-SQLite may not be the best SQL storage solution if the project is migrated to the cloud, will need to investigate other solutions such as Amazon Relational Database.
+SQLite may not be the best SQL storage solution if the project is migrated to the cloud, will need to investigate other solutions such as Amazon Relational Database or NoSQL solutions such as Apache Spark.
 
 ## Model Performance
 

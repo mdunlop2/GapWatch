@@ -19,7 +19,7 @@ import pandas as pd
 from pathlib import Path
 import time
 import numpy as np
-import progressbar
+import 
 import sqlite3
 
 # video tools
