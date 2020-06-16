@@ -34,6 +34,35 @@ def const_trail():
     # length of audio track to record during inference (seconds)
     return 1/60
 
+def const_header():
+    '''
+    Headers to be used throughout training and inference.
+    Make sure that the headers line up with the preprocess_input function output
+    The first three items in this list will represent:
+    - frame label
+    - video location
+    - frame number
+    The rest should describe each feature output by preprocess_input
+    '''
+    return ["label",
+            "video_url",
+            "frame",
+            "mean",
+            "var",
+            "kurt",
+            "skew",
+            "mfcc_0",
+            "mfcc_1",
+            "mfcc_2",
+            "mfcc_3",
+            "mfcc_4",
+            "mfcc_5",
+            "mfcc_6",
+            "mfcc_7",
+            "mfcc_8",
+            "mfcc_9"
+            ]
+
 #### MODEL TRAINING AND INFERENCE FUNCTIONS ####
 
 def frame_selection(frame_start, frame_end, num_frames):
@@ -93,7 +122,6 @@ def preprocess_input(frame, audio,
 
     OUTPUTS:
     features  : The complete features of audio and video
-    headers   : The labels for each column of features
     '''
     # MODEL SPECIFIC PARAMETERS
     n_mfcc = const_n_mfcc()   # possibly replace this with a config file when YAML scripting is setup
@@ -110,7 +138,7 @@ def preprocess_input(frame, audio,
     kurtosises = kurtosis(tmp_batch, axis=1)
     skewnesses = skew(tmp_batch, axis=1)
     # stack horizontally
-    frame_feats = np.vstack([means, variances, kurtosises, skewnesses])
+    frame_feats = np.vstack([means, variances, kurtosises, skewnesses]).T
 
     # Currently there is a bug with librosa whereby multiprocessing cannot
     # be used as some objects are shared between the threads.
@@ -127,11 +155,8 @@ def preprocess_input(frame, audio,
     #                                     repeat(RATE)))
     audio_feats = np.array([mfcc_from_data(a,n_mfcc, RATE) for a in audio])
     # need to convert to numpy array and then concatenate to the image features
-    print("audio feats complete")
-    print("Audio Feat Shape ",np.array(audio_feats).shape)
-    print("Image Feat Shape ",np.array(frame_feats).shape)
-
-    # TMP: MAKE SURE ALL THESE COMPONENTS WORK
-    return None, None
+    # combine to find the total features
+    feats = np.hstack((frame_feats, audio_feats))
+    return feats
     
 

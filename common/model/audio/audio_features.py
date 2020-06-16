@@ -18,7 +18,7 @@ from pathlib import Path
 import time
 import numpy as np
 import progressbar
-import librosa
+import librosa, wave, pyaudio
 import subprocess
 
 def extract_audio(video_url,
@@ -107,6 +107,69 @@ def get_mfccs(video_url,
     mfccs = np.mean(librosa.feature.mfcc(y=audio, sr=sample_rate, n_mfcc=n_mfcc).T,axis=0)
     # return the MFCCs
     return mfccs
+
+def video_to_audio(video_url,
+                   frame_start,
+                   frame_end,
+                   num_frames,
+                   vid_FPS,
+                   m):
+    '''
+    Read a .mp4 video file and return a vstack numpy
+    array of the audio in a format librosa can understand
+
+    Frames are sampled uniformly between frame_start and frame_end
+    INPUTS:
+    video_url   : String
+    frame_start : Starting Frame Number
+    frame_end   : Ending Frame Number
+                    - if False:
+                        We use the last frame in the video
+    num_frames  : Integer
+
+    OUTPUT:
+    List       : Shape: (num_frames)
+                  A list is used since this will be supplied to a starmap
+                  for parallelism.
+    '''
+    temp_fn = "audio.wav" # temporary filename
+    # make sure it doesn't exist already
+    while os.path.isfile(temp_fn):
+        # delete temporary file
+        # file deletions appear to fail sometimes
+        os.remove(temp_fn)
+        time.sleep(0.01)
+    
+    command = ["ffmpeg", "-i", video_url, "-ab", "160k",
+               "-ac", "2", "-ar", "44100", "-vn", temp_fn]
+    subprocess.call(command)
+    # read the audio file
+    wf = wave.open(temp_fn, 'rb')
+    p = pyaudio.PyAudio()
+    # open stream based on the wave object which has been input.
+    RATE = wf.getframerate()
+    CHUNK = RATE*m.const_trail()
+    stream = p.open(format =
+                p.get_format_from_width(wf.getsampwidth()),
+                channels = wf.getnchannels(),
+                rate = RATE,
+                output = True)
+    # find the desired frames
+    idx_array = m.frame_selection(frame_start, frame_end, num_frames)
+    # find corresponding audio clips
+    ret = []
+    print("Reading {} .mp4 file and \nextracting {} audio clips between frame {} and {}".format(video_url, num_frames, frame_start, frame_end))
+    with progressbar.ProgressBar(max_value=num_frames) as bar:
+        for idx in range(num_frames):
+            # read the audio leading up to frame i
+            # this prevents lookahead bias
+            # (although in deployment, audio and image features are found sequentially currently)
+            audio_pos = max(0,min(wf.getnframes()-1,int(np.floor(RATE*(idx_array[idx]/vid_FPS)-CHUNK))))
+            wf.setpos(audio_pos)
+            ret.append(np.frombuffer(wf.readframes(int(np.floor(CHUNK))), dtype=np.int16).astype(float))
+            bar.update(idx)
+    return ret, RATE
+
 if __name__ == "__main__":
     # initiate the parser
     parser = argparse.ArgumentParser()

@@ -7,6 +7,7 @@ import pyaudio, librosa, wave
 
 from pathlib import Path
 import numpy as np
+import pandas as pd
 
 # video tools
 import cv2
@@ -21,6 +22,7 @@ import common.data.labels.generate_index as gi
 import common.data.labels.frame_label_utils as flu
 import common.data.labels.frame_sqlite_utils as squ
 import common.model.image.extraction.MobileNet_class as mc
+import common.model.audio.audio_features as af
 
 ### TEMPORARY ###
 # store some parameters which will be managed by YAML script on the
@@ -44,76 +46,13 @@ FRAME_END_COLNAME = "frame_end"
 
 ### \TEMPORARY ###
 
-def video_to_audio(video_url,
-                   frame_start,
-                   frame_end,
-                   num_frames,
-                   vid_FPS,
-                   m):
-    '''
-    Read a .mp4 video file and return a vstack numpy
-    array of the audio in a format librosa can understand
-
-    Frames are sampled uniformly between frame_start and frame_end
-    INPUTS:
-    video_url   : String
-    frame_start : Starting Frame Number
-    frame_end   : Ending Frame Number
-                    - if False:
-                        We use the last frame in the video
-    num_frames  : Integer
-
-    OUTPUT:
-    List       : Shape: (num_frames)
-                  A list is used since this will be supplied to a starmap
-                  for parallelism.
-    '''
-    temp_fn = "audio.wav" # temporary filename
-    # make sure it doesn't exist already
-    while os.path.isfile(temp_fn):
-        # delete temporary file
-        # file deletions appear to fail sometimes
-        os.remove(temp_fn)
-        time.sleep(0.01)
-    
-    command = ["ffmpeg", "-i", video_url, "-ab", "160k",
-               "-ac", "2", "-ar", "44100", "-vn", temp_fn]
-    subprocess.call(command)
-    # read the audio file
-    wf = wave.open(temp_fn, 'rb')
-    p = pyaudio.PyAudio()
-    # open stream based on the wave object which has been input.
-    RATE = wf.getframerate()
-    CHUNK = RATE*m.const_trail()
-    stream = p.open(format =
-                p.get_format_from_width(wf.getsampwidth()),
-                channels = wf.getnchannels(),
-                rate = RATE,
-                output = True)
-    # find the desired frames
-    idx_array = m.frame_selection(frame_start, frame_end, num_frames)
-    # find corresponding audio clips
-    ret = []
-    print("Reading {} .mp4 file and \nextracting {} audio clips between frame {} and {}".format(video_url, num_frames, frame_start, frame_end))
-    with progressbar.ProgressBar(max_value=num_frames) as bar:
-        for idx in range(num_frames):
-            # read the audio leading up to frame i
-            # this prevents lookahead bias
-            # (although in deployment, audio and image features are found sequentially currently)
-            audio_pos = max(0,min(wf.getnframes()-1,int(np.floor(RATE*(idx_array[idx]/vid_FPS)-CHUNK))))
-            wf.setpos(audio_pos)
-            ret.append(np.frombuffer(wf.readframes(int(np.floor(CHUNK))), dtype=np.int16).astype(float))
-            bar.update(idx)
-    return ret, RATE
-
-
-
 def featureset_construct(DATABASE,
                          NUM_SAMPLES,
                          STORE,
                          n_mfcc,
                          TRAIL,
-                         labels
+                         labels,
+                         m
                          ):
     '''
     INPUTS:
@@ -143,7 +82,6 @@ def featureset_construct(DATABASE,
     # NOTE: Big changes required to this if multiple authors implemented!
     cur.execute(label_sql)
     label_data = np.array(cur.fetchall())
-    print("Label Data Shape: {}".format(label_data.shape))
     # loop over labels
     # want to find how many clips there are
     # so that we sample uniformly from each and still have
@@ -166,7 +104,7 @@ def featureset_construct(DATABASE,
                                         target_size = (224,224),
                                         m = m)
         # obtain the batch of audio data
-        audio_batch, RATE = video_to_audio(
+        audio_batch, RATE = af.video_to_audio(
                                         label_data[i,0],
                                         int(label_data[i,1]),
                                         int(label_data[i,2]),
@@ -175,12 +113,19 @@ def featureset_construct(DATABASE,
                                         m)
 
         # get features using model preprocessing stage
-        features, headers = m.preprocess_input(frame = image_batch,
+        features = m.preprocess_input(frame = image_batch,
                                                audio = audio_batch,
                                                inference = False,
                                                RATE = RATE)
         
-        # write to csv
+        headers = m.const_header()
+        # write to csv with pandas
+        df = pd.DataFrame(data = features, columns=headers[3:])
+        df[headers[0]] = label           # labels
+        df[headers[1]] = label_data[i,0] # video location
+        df[headers[2]] = frames          # frame numbers
+        # append to previous csv if it exists
+        df.to_csv(args.s, mode='a', header=not os.path.exists(args.s))
 
         
     return label_data
@@ -204,17 +149,11 @@ if __name__=="__main__":
 
     m = importlib.import_module(args.m) # import the model file
 
-    # tmp: try to generate a dummy index
-    print("Dummy frame selection: \n{}".format(m.frame_selection(0, 99, 10)))
-
-    # tmp: print some of the saved functions
-    print("n_mfccs: {}".format(m.const_n_mfcc()))
-
     label_data = featureset_construct(  args.db,
                                         int(float(args.n)),
                                         args.s,
                                         int(float(m.const_n_mfcc())),
                                         int(float(m.const_trail())),
-                                        labels
+                                        labels,
+                                        m
                                         )
-    print(label_data.shape)

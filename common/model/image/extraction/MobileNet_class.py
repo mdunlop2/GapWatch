@@ -87,7 +87,6 @@ def video_to_frames(video_url,
     if m:
         idx_array = m.frame_selection(frame_start, frame_end, num_frames)
         interpol = m.const_interpol() # for speed or accuracy tradeoff
-        print("Frame index: \n{}".format(idx_array))
     else:
         idx_array = np.round(np.linspace(frame_start+1, frame_end-1, num_frames, endpoint = True)).astype("int")
         interpol = cv2.INTER_CUBIC
