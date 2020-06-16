@@ -53,7 +53,8 @@ def video_to_frames(video_url,
                     frame_start,
                     frame_end,
                     num_frames,
-                    target_size = (224,224)):
+                    target_size = (224,224),
+                    m = None):
     '''
     Read a .mp4 video file and return a vstack numpy
     array of the images with the correct size
@@ -81,7 +82,15 @@ def video_to_frames(video_url,
     images = np.zeros((num_frames, target_size[0], target_size[1], 3))
     # generate the index of frames to sample
     # we wish to sample uniformly across the clip
-    idx_array = np.round(np.linspace(frame_start+1, frame_end-1, num_frames, endpoint = True)).astype("int")
+    # UPDATE: 16-06-20: Generalised model training and inference, uses model defined frame selection
+    # doesn't break backwards compatibility
+    if m:
+        idx_array = m.frame_selection(frame_start, frame_end, num_frames)
+        interpol = m.const_interpol() # for speed or accuracy tradeoff
+        print("Frame index: \n{}".format(idx_array))
+    else:
+        idx_array = np.round(np.linspace(frame_start+1, frame_end-1, num_frames, endpoint = True)).astype("int")
+        interpol = cv2.INTER_CUBIC
     start = time.time()
     print("Reading {} .mp4 file and \nextracting {} frames between frame {} and {}".format(video_url, num_frames, frame_start, frame_end))
     with progressbar.ProgressBar(max_value=num_frames) as bar:
@@ -93,19 +102,19 @@ def video_to_frames(video_url,
             res, image = video.read()
             # resize to desired dimension
             try:
-                image = cv2.resize(image, target_size, interpolation=cv2.INTER_CUBIC)
+                image = cv2.resize(image, target_size, interpolation=interpol)
             except:
                 print("Unable to find image in frame {}! Trying next frame".format(frame_number))
                 try:
                     video.set(cv2.CAP_PROP_POS_FRAMES, frame_number+1)
                     res, image = video.read()
-                    image = cv2.resize(image, target_size, interpolation=cv2.INTER_CUBIC)
+                    image = cv2.resize(image, target_size, interpolation=interpol)
                 except:
                     print("Unable to find image in frame {}. \n Trying previous frame".format(frame_number +1))
                     try:
                         video.set(cv2.CAP_PROP_POS_FRAMES, frame_number+1)
                         res, image = video.read()
-                        image = cv2.resize(image, target_size, interpolation=cv2.INTER_CUBIC)
+                        image = cv2.resize(image, target_size, interpolation=interpol)
                     except:
                         print("Unable to find image.")
                         break

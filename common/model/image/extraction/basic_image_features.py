@@ -25,7 +25,7 @@ def basic_image_features(image_batch):
     # need to reshape them to (num_frames, 224*224, 3)
     tmp_batch = np.reshape(image_batch, (image_batch.shape[0],
                                          -1, image_batch.shape[3]))
-    kurtosisi = kurtosis(tmp_batch, axis=1)
+    kurtosises = kurtosis(tmp_batch, axis=1)
     skewnesses = skew(tmp_batch, axis=1)
     # stack horizontally and return answer
-    return np.hstack([means, variances, kurtosisi, skewnesses])
+    return np.hstack([means, variances, kurtosises, skewnesses])

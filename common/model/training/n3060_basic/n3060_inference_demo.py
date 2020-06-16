@@ -95,8 +95,6 @@ def get_std_vals(csv_loc):
 
 
 if __name__=="__main__":
-    # setup logging
-    logging.basicConfig(filename='n3060.log', level=logging.DEBUG)
     # parse any input arguments
     parser = argparse.ArgumentParser()
 
