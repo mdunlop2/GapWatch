@@ -91,7 +91,8 @@ def featureset_construct(DATABASE,
     batch_size = np.round(frame_target/counts) # batch size for each class
     print("Labels: {} \nCounts: {} \nClip Frames: {}".format(unique, counts, batch_size))
     batch_ref = dict(zip(unique, batch_size))
-    for i in range(len(label_data[:,0])):
+    # for i in range(len(label_data[:,0])):
+    for i in range(5):
         # get our label
         label = label_data[i,3]
         # obtain the frames in batches

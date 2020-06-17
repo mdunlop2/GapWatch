@@ -78,8 +78,6 @@ def video_to_frames(video_url,
         frame_end = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
     # get framerate
     FRAMERATE = int(video.get(cv2.CAP_PROP_FPS))
-    # storage for output vector
-    images = np.zeros((num_frames, target_size[0], target_size[1], 3))
     # generate the index of frames to sample
     # we wish to sample uniformly across the clip
     # UPDATE: 16-06-20: Generalised model training and inference, uses model defined frame selection
@@ -90,10 +88,12 @@ def video_to_frames(video_url,
     else:
         idx_array = np.round(np.linspace(frame_start+1, frame_end-1, num_frames, endpoint = True)).astype("int")
         interpol = cv2.INTER_CUBIC
+    # storage for output vector
+    images = np.zeros((len(idx_array), target_size[0], target_size[1], 3))
     start = time.time()
-    print("Reading {} .mp4 file and \nextracting {} frames between frame {} and {}".format(video_url, num_frames, frame_start, frame_end))
-    with progressbar.ProgressBar(max_value=num_frames) as bar:
-        for idx in range(num_frames):
+    print("Reading {} .mp4 file and \nextracting {} frames between frame {} and {}".format(video_url, len(idx_array), frame_start, frame_end))
+    with progressbar.ProgressBar(max_value=len(idx_array)) as bar:
+        for idx in range(len(idx_array)):
             # get the frame number
             frame_number = idx_array[idx]
             # get the frame
