@@ -198,4 +198,3 @@ def preprocess_input(frame, audio,
     feats = np.hstack((frame_feats, audio_feats[n:], d_audio_feats))
     print("Features shape: {}".format(feats.shape))
     return feats
-    
