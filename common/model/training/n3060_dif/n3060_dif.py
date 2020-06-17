@@ -62,9 +62,13 @@ def const_header():
             "video_url",
             "frame",
             "mean",
+            "d_mean",
             "var",
+            "d_var",
             "kurt",
+            "d_kurt",
             "skew",
+            "d_skew",
             "mfcc_0",
             "mfcc_1",
             "mfcc_2",
@@ -74,7 +78,17 @@ def const_header():
             "mfcc_6",
             "mfcc_7",
             "mfcc_8",
-            "mfcc_9"
+            "mfcc_9",
+            "d_mfcc_0",
+            "d_mfcc_1",
+            "d_mfcc_2",
+            "d_mfcc_3",
+            "d_mfcc_4",
+            "d_mfcc_5",
+            "d_mfcc_6",
+            "d_mfcc_7",
+            "d_mfcc_8",
+            "d_mfcc_9"
             ]
 
 #### MODEL TRAINING AND INFERENCE FUNCTIONS ####
@@ -84,13 +98,16 @@ def frame_selection(frame_start, frame_end, num_frames):
     Generally using uniform selection is fine, however this can be changed
     if some future idea suggests it could be useful
     (eg getting pairs of frames to find the derivative)
+
+    idx_array: indices of all frames required
+    frame    : indices of the frame performing inference on
     '''
     F1 = np.round(np.linspace(frame_start+1, frame_end-1, num_frames, endpoint = False)).astype("int")
-    F2 = F1+1 # find the next frame (note that the endpoint is false)
+    frame = F1+1 # find the next frame (note that the endpoint is false)
     # the order of concatenation matters because these will be used when processing the features
-    ret = np.concatenate((F1,F2))
-    print("Using Frames: \n{}".format(ret))
-    return ret
+    idx_array = np.concatenate((F1,frame))
+    print("Using Frames: \n{}".format(idx_array))
+    return idx_array, frame
 
 def frame_transform(frame):
     '''
@@ -152,36 +169,33 @@ def preprocess_input(frame, audio,
     F1 = frame_BW[:n,:,:] # first n images
     F2 = frame_BW[n:,:,:] # last n images
     F_diff = F2-F1        # frame difference
+    # vstack back onto the current freame (F2)
     # get the model specific features
-    means = np.mean(F_diff, axis=(1,2))
-    variances = np.var(F_diff, axis=(1,2))
+    means = np.mean(F2, axis=(1,2))
+    d_means = np.mean(F_diff, axis=(1,2))
+    variances = np.var(F2, axis=(1,2))
+    d_variances = np.var(F_diff, axis=(1,2))
     # kurtosis, skewness do not support multiple axes
     # need to reshape them to (num_frames, 224*224, 3)
-    tmp_batch = np.reshape(F_diff, (frame.shape[0],
+    tmp_batch = np.reshape(F2, (F2.shape[0],
+                                  -1))
+    d_tmp_batch = np.reshape(F_diff, (F_diff.shape[0],
                                   -1))
     kurtosises = kurtosis(tmp_batch, axis=1)
+    d_kurtosises = kurtosis(d_tmp_batch, axis=1)
     skewnesses = skew(tmp_batch, axis=1)
+    d_skewnesses = skew(d_tmp_batch, axis=1)
     # stack horizontally
-    frame_feats = np.vstack([means, variances, kurtosises, skewnesses]).T
+    frame_feats = np.vstack([means, d_means,
+                             variances, d_variances,
+                             kurtosises, d_kurtosises,
+                             skewnesses, d_skewnesses]).T
+    print("frame feats shape ",frame_feats.shape)
 
-    # Currently there is a bug with librosa whereby multiprocessing cannot
-    # be used as some objects are shared between the threads.
-    # However, fortunately the mfccs can be calculated fast and in somewhat parallel
-    # with numba and MKL so this doesn't affect performance too much.
-    # Overall, the vast majority of the time for this script to complete is
-    # occupied reading and finding the mp4 frames which is limited by hard drive speed.
-    # Audio track
-    # use starmap to iterate
-    # with Pool(1) as pool:
-    #     audio_feats = pool.starmap(mfcc_from_data,
-    #                                 zip(audio,
-    #                                     repeat(n_mfcc),
-    #                                     repeat(RATE)))
     audio_feats = np.array([mfcc_from_data(a,n_mfcc, RATE) for a in audio])
-    # need to convert to numpy array and then concatenate to the image features
-    # combine to find the total features
-
-    # NEW: Find the difference between the two sets of audio features.
-    feats = np.hstack((frame_feats, audio_feats))
+    # NEW: Find the difference between the MFCCs
+    d_audio_feats = audio_feats[n:] - audio_feats[:n]
+    feats = np.hstack((frame_feats, audio_feats[n:], d_audio_feats))
+    print("Features shape: {}".format(feats.shape))
     return feats
     

@@ -83,11 +83,12 @@ def video_to_frames(video_url,
     # UPDATE: 16-06-20: Generalised model training and inference, uses model defined frame selection
     # doesn't break backwards compatibility
     if m:
-        idx_array = m.frame_selection(frame_start, frame_end, num_frames)
+        idx_array, frames = m.frame_selection(frame_start, frame_end, num_frames)
         interpol = m.const_interpol() # for speed or accuracy tradeoff
     else:
         idx_array = np.round(np.linspace(frame_start+1, frame_end-1, num_frames, endpoint = True)).astype("int")
         interpol = cv2.INTER_CUBIC
+        frames = idx_array # actual frame references
     # storage for output vector
     images = np.zeros((len(idx_array), target_size[0], target_size[1], 3))
     start = time.time()
@@ -126,7 +127,7 @@ def video_to_frames(video_url,
             images[idx,:,:,:] = image
             bar.update(idx)
     print("{} Frames written in {:.3f} seconds".format(num_frames, time.time()-start))
-    return images, idx_array, FRAMERATE
+    return images, frames, FRAMERATE
 
 def batch_class_inference(model,
                           image_batch):

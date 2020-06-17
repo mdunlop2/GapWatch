@@ -104,7 +104,7 @@ def featureset_construct(DATABASE,
                                         target_size = (224,224),
                                         m = m)
         # obtain the batch of audio data
-        audio_batch, RATE = af.video_to_audio(
+        audio_batch, frames, RATE = af.video_to_audio(
                                         label_data[i,0],
                                         int(label_data[i,1]),
                                         int(label_data[i,2]),

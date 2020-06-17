@@ -155,12 +155,12 @@ def video_to_audio(video_url,
                 rate = RATE,
                 output = True)
     # find the desired frames
-    idx_array = m.frame_selection(frame_start, frame_end, num_frames)
+    idx_array, frames = m.frame_selection(frame_start, frame_end, num_frames)
     # find corresponding audio clips
     ret = []
     print("Reading {} .mp4 file and \nextracting {} audio clips between frame {} and {}".format(video_url, num_frames, frame_start, frame_end))
-    with progressbar.ProgressBar(max_value=num_frames) as bar:
-        for idx in range(num_frames):
+    with progressbar.ProgressBar(max_value=len(idx_array)) as bar:
+        for idx in range(len(idx_array)):
             # read the audio leading up to frame i
             # this prevents lookahead bias
             # (although in deployment, audio and image features are found sequentially currently)
@@ -168,7 +168,7 @@ def video_to_audio(video_url,
             wf.setpos(audio_pos)
             ret.append(np.frombuffer(wf.readframes(int(np.floor(CHUNK))), dtype=np.int16).astype(float))
             bar.update(idx)
-    return ret, RATE
+    return ret, frames, RATE
 
 if __name__ == "__main__":
     # initiate the parser
