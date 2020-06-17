@@ -91,6 +91,15 @@ def const_header():
             "d_mfcc_9"
             ]
 
+def const_config_defaults():
+    return {
+            'headers'     : ["NA"],
+            'sel_headers' : [True],
+            'model_store' : "",
+            'm_loc'       : "",
+            'n_prev'      : 0  
+        }
+
 #### MODEL TRAINING AND INFERENCE FUNCTIONS ####
 def frame_selection(frame_start, frame_end, num_frames):
     '''
@@ -162,7 +171,6 @@ def preprocess_input(frame, audio,
     n_mfcc = const_n_mfcc()   # possibly replace this with a config file when YAML scripting is setup
     # convert to black and white
     frame_BW = np.array([cv2.cvtColor(np.squeeze(frame[i,:,:,:]).astype(np.float32), cv2.COLOR_BGR2GRAY) for i in range(frame.shape[0])])
-    print("frame_BW Shape: {}".format(frame_BW.shape))
     # NEW: Find the differences between the two sets of frames
     # recall that F1 is the previous frame, F2 is the current frame.
     n = int(frame_BW.shape[0]/2) # this should ALWAYS be an integer
@@ -176,11 +184,11 @@ def preprocess_input(frame, audio,
     variances = np.var(F2, axis=(1,2))
     d_variances = np.var(F_diff, axis=(1,2))
     # kurtosis, skewness do not support multiple axes
-    # need to reshape them to (num_frames, 224*224, 3)
+    # need to reshape them to (num_frames, 224*224, 1)
     tmp_batch = np.reshape(F2, (F2.shape[0],
-                                  -1))
+                                -1))
     d_tmp_batch = np.reshape(F_diff, (F_diff.shape[0],
-                                  -1))
+                                -1))
     kurtosises = kurtosis(tmp_batch, axis=1)
     d_kurtosises = kurtosis(d_tmp_batch, axis=1)
     skewnesses = skew(tmp_batch, axis=1)
@@ -190,11 +198,9 @@ def preprocess_input(frame, audio,
                              variances, d_variances,
                              kurtosises, d_kurtosises,
                              skewnesses, d_skewnesses]).T
-    print("frame feats shape ",frame_feats.shape)
 
     audio_feats = np.array([mfcc_from_data(a,n_mfcc, RATE) for a in audio])
     # NEW: Find the difference between the MFCCs
     d_audio_feats = audio_feats[n:] - audio_feats[:n]
     feats = np.hstack((frame_feats, audio_feats[n:], d_audio_feats))
-    print("Features shape: {}".format(feats.shape))
     return feats
