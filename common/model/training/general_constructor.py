@@ -124,6 +124,8 @@ def featureset_construct(DATABASE,
         df[headers[0]] = label           # labels
         df[headers[1]] = label_data[i,0] # video location
         df[headers[2]] = frames          # frame numbers
+        # make sure that correct order of headers is saved to csv
+        df = df[headers]
         # append to previous csv if it exists
         df.to_csv(args.s, mode='a', header=not os.path.exists(args.s), index=False)
 

@@ -48,11 +48,6 @@ def audio_numpy(wf, frame_no, vid_FPS, CHUNK, RATE):
     return np.expand_dims(data, axis=0)
 
 def inference_demo(v, o, m):
-    # define hardware specific parameters
-    RATE = 44100           # audio sampling rate
-    FPS = 60               # initial target audio FPS
-    CHUNK = int(RATE/FPS)  # how many samples to listen for each time prediction attempted
-
     ## initialise camera
     cap = cv2.VideoCapture(v)
     vid_FPS = cap.get(cv2.CAP_PROP_FPS)
@@ -68,24 +63,15 @@ def inference_demo(v, o, m):
         # file deletions appear to fail sometimes
         os.remove(temp_fn)
         time.sleep(0.01)
-    command = ["ffmpeg", "-i", args.v, "-ab", "160k",
+    command = ["ffmpeg", "-i", v, "-ab", "160k",
                "-ac", "2", "-ar", "44100", "-vn", temp_fn]
     subprocess.call(command)
-
-    # read the audio file
-    wf = wave.open(temp_fn, 'rb')
-    p = pyaudio.PyAudio()
-    # open stream based on the wave object which has been input.
-    stream = p.open(format =
-                p.get_format_from_width(wf.getsampwidth()),
-                channels = wf.getnchannels(),
-                rate = wf.getframerate(),
-                output = True)
     
     # initialise models
-    cfgs = []
-    clfs = []
-    prev = []
+    cfgs = [] # configuration files
+    clfs = [] # classifier pipelines
+    prev = [] # number of previous frames required
+    nms  = [] # names
 
     for i in range(len(m)):
         # load the configuration file
@@ -94,18 +80,42 @@ def inference_demo(v, o, m):
         cfgs.append(config)
         clfs.append(joblib.load(config["model_store"])) # load the classifiers
         prev.append(config["n_prev"]) # number of previous frames required
+        nms.append(config["name"])
     print("Models loaded")
 
     # all share the same dataset config, s
     s = importlib.import_module(cfgs[0]["m_loc"]) # loads the model location
+    headers = s.const_header() # feature headers
+
+    # read the audio file
+    wf = wave.open(temp_fn, 'rb')
+    p = pyaudio.PyAudio()
+    # define hardware specific parameters
+    RATE = wf.getframerate()
+    CHUNK = int(np.floor(RATE*s.const_trail()))  # how many samples to listen for each time prediction attempted
+    # open stream based on the wave object which has been input.
+    stream = p.open(format =
+                p.get_format_from_width(wf.getsampwidth()),
+                channels = wf.getnchannels(),
+                rate = wf.getframerate(),
+                output = True)
+
+    # describe the models (requires s to be loaded in first)
+    # decribe the models to be used:
+    for i in range(len(m)):
+        print("\n\nMODEL {}: \n {} \nFeatures: \n{}\nMean: \n{}\nVariance: \n{}".format(
+                                                    nms[i],
+                                                    "-*-"*10,
+                                                    dict(zip(headers[3:],cfgs[i]["sel_headers"][3:])),
+                                                    clfs[i].named_steps[cfgs[i]["scaler"]].mean_,
+                                                    clfs[i].named_steps[cfgs[i]["scaler"]].var_))
 
     # loop until keyboard exception or video complete
     frames = 0
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    offset = int(np.ceil(FPS/vid_FPS))+1*int(round(vid_FPS)) # audio may not be read correctly in last second
+    offset = int(np.ceil(s.const_trail()*vid_FPS)+1*round(vid_FPS)) # audio may not be read correctly in last second
 
     # store predicted probability and the features and were supplied to model
-    headers = s.const_header()
     res = np.zeros((n_frames-offset, len(headers[3:])+len(m)))
     start = time.time()
     start_frame = 0 # frame to start inference from
@@ -123,17 +133,19 @@ def inference_demo(v, o, m):
                     print("Failed to obtain camera data")
                     break
                 # gather audio data
-                audio = audio_numpy(wf, i, vid_FPS, CHUNK, RATE)
+                audio = audio_numpy(wf, start_frame+i, vid_FPS, CHUNK, RATE)
                 # begin storing historical data
                 if i==0:
                     # no previous data, instead update with new
                     image_batch = np.repeat(frame, max(prev)+1, axis=0)
                     audio_batch = np.repeat(audio, max(prev)+1, axis=0)
                 else:
-                    image_batch[1:] = image_batch[:-1] # update all prev, drop last
-                    audio_batch[1:] = audio_batch[:-1]
-                    image_batch[0]  = frame            # first entry becomes new frame
-                    audio_batch[0]  = audio
+                    # be careful with the order here! Take special care
+                    # to ensure this matches the order of frames that preprocess_input expects
+                    image_batch[:-1] = image_batch[1:] # update all prev, drop last
+                    audio_batch[:-1] = audio_batch[1:]
+                    image_batch[-1]  = frame            # first entry becomes new frame
+                    audio_batch[-1]  = audio
                 # obtain the dataset features
                 feats = s.preprocess_input(image_batch, audio_batch,
                                             inference = True,
@@ -144,24 +156,26 @@ def inference_demo(v, o, m):
                     # check if we need a subset of the features only
                     sel_headers = cfgs[j]["sel_headers"] # some array of booleans
                     feats_j = feats[:,sel_headers[3:]] # selected features for the model
-                    p[j] = clfs[j].predict_proba(feats_j)[0,1] # save the predicted probability
+                    pred = clfs[j].predict_proba(feats_j) # save the predicted probability
+                    p[j] = pred[0,1]
                 res[i,] = np.insert(feats,0,p)
                 bar.update(i)
                 
 
             except KeyboardInterrupt:
                 break
-    effective_FPS = (time.time()-start)/(n_frames-offset)
+    effective_FPS =(n_frames-offset-start_frame)/(time.time()-start)
     print("Effective Frame Rate: {}".format(effective_FPS))
     # write the results to a csv
-    df = pd.DataFrame(res)
-    df.to_csv(o, header=None)
+    colnames = np.insert(headers[3:],0,nms)
+    print(colnames)
+    df = pd.DataFrame(res, columns = colnames)
+    df.to_csv(o)
     # release camera and microphone
     print("Releasing Camera and Microphone")
     cap.release() # release camera
     stream.stop_stream # release audio
     stream.close
-    p.terminate()
     return df
 
 if __name__=="__main__":
@@ -186,6 +200,7 @@ if __name__=="__main__":
     print("m: \n{}".format(args.m))
 
     df = inference_demo(args.v, args.o, args.m)
+    print(df.head())
 
 
 
