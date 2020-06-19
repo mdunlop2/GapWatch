@@ -115,7 +115,7 @@ This is the model from 19th June, which displays very promising results even on 
 
 | Column Name | Description                                                                     | Differential | Differential Description                                                                    |
 |-------------|---------------------------------------------------------------------------------|--------------|---------------------------------------------------------------------------------------------|
-| label       | Label of the scene, -Danger -No Danger                                          |              |                                                                                             |
+| label       | Label of the scene, -Danger=1 -No Danger=0                                          |              |                                                                                             |
 | video_url   | Location of the mp4 file that the scene was pulled from                         |              |                                                                                             |
 | frame       | Frame number of the video                                                       |              |                                                                                             |
 | mean        | Mean value of the pixels in the black-and-white frame after image_net transform | d_mean       | Mean value of the difference between the pixel values of this frame, and the previous frame |
