@@ -105,21 +105,51 @@ Going forward, if this project is funded and multiple author labeling is desired
 
 SQLite may not be the best SQL storage solution if the project is migrated to the cloud, will need to investigate other solutions such as Amazon Relational Database or NoSQL solutions such as Apache Spark.
 
-## Model Performance
+## Model
 
 The work so far in this project has been completed to allow for the interchanging of model-related components as much as possible. That said, an early indicator of the potential performance of this system can be obtained from the experiments with the logistic regression model.
 
 This is the model from 19th June, which displays very promising results even on unseen data. Note that "unseen" data is defined as frames from an entire video which has not been previously seen by the model. This accounts for the fact that frames from the same video clip will have some degree of correlation in terms of features.
 
-![Alt Text](./common/model/training/n3060_dif/lr_roc.png)
+### Features
+
+| Column Name | Description                                                                     | Differential | Differential Description                                                                    |
+|-------------|---------------------------------------------------------------------------------|--------------|---------------------------------------------------------------------------------------------|
+| label       | Label of the scene, -Danger -No Danger                                          |              |                                                                                             |
+| video_url   | Location of the mp4 file that the scene was pulled from                         |              |                                                                                             |
+| frame       | Frame number of the video                                                       |              |                                                                                             |
+| mean        | Mean value of the pixels in the black-and-white frame after image_net transform | d_mean       | Mean value of the difference between the pixel values of this frame, and the previous frame |
+| var         | Variance of the pixels in the image after image_net transform                   | d_var        | Variance of the difference between the pixel values of this frame, and the previous frame   |
+| kurt        | Kurtosis of the pixels in the image after image_net transform                   | d_kurt       | Kurtosis of the difference between the pixel values of this frame, and the previous frame   |
+| skew        | Skewness of the pixels in the image after image_net transform                   | d_skew       | Skewness of the difference between the pixel values of this frame, and the previous frame   |
+| mfcc_X      | Librosa Mel-frequency cepstral coefficient X for X = 0,1,2,..,9                 | d_mfcc_X     | Difference between the current value of mfcc_X and the previous value of mfcc_X             |
+
+The decision threshold set to achieve 95% sensitivity, at 0.168. This means that we will correctly detect 95% of frames that are classified as "Dangerous" - but with the side effect of having very many false positives (shown as the low specificity on the graph).
+
+The logistic regression (*lr*) model was found to have the following components after removing coefficients that were not significantly different to zero when bootstrapping.
 
 ![ALT TEXT](./common/model/training/n3060_dif/lr.png)
 
+### Model Performance
+
+The area under the roc curve shown on the plot below was 0.9 which shows that the model fit the data quite well, however it lacks the power to have high specificity when a high sensitivity is chosen (eg. 95% as above).
+
+![Alt Text](./common/model/training/n3060_dif/lr_roc.png)
+
+Performance on a video the model had already seen was very good, can see that the model actually provides a significant warning ahead of the dangerous period (green) as the danger probability (blue line) gradually increases in the plot below.
+
+Interestingly the recorded Kurtosis value of the frame changes significantly after the car has passed which indicates that while the feature is stable in the short term in non-dangerous times, it is not stable in the long term after small changes in the image have taken place like wind from a passing car displacing leaves on the hedge.
+
+
 ![ALT TEXT](./common/model/training/n3060_dif/seen.png)
+
+Performance on the unseen video below is a little bit worse, in this particular case the car is travelling very slowly and the noise produced doesn't seem to register as strongly in mfcc_0, mfcc_1, mfcc_2. This is intersesing and certainly an area for improvement.
 
 ![ALT TEXT](./common/model/training/n3060_dif/unseen.png)
 
 For an in-depth look at this particular model and how it was trained, please see the Jupyter Notebook [here.](https://github.com/mdunlop2/GapWatch/blob/master/common/model/training/n3060_dif/n3060_dif_training.ipynb)
+
+Overall, choosing 95% sensitivity was a very aggressive move and resulted in a lot of false positives. A more balanced threshold, such as 0.6 shows that the model is capable and in all cases will detect the object (albeit with less warning time). To conclude, we have a balance between many false positives and getting more warning time ahead of danger, both of which can be mitigated with more powerful models (which require more data!).
 
 ### Future Improvements
 
