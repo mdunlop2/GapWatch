@@ -22,6 +22,12 @@ import joblib, subprocess, cv2, pyaudio, wave, time, librosa, argparse, os, sys,
 import progressbar, importlib
 from pathlib import Path
 
+# Model Related Imports
+import keras
+from keras.applications.mobilenet import MobileNet
+from keras.applications.mobilenet import preprocess_input, decode_predictions
+from keras.preprocessing.image import img_to_array
+
 # custom image extractors
 # Add the git root directory to python path
 sys.path.insert(0,os.getcwd())
@@ -128,7 +134,12 @@ def inference_demo(v, o, m):
                 
                 ret, frame = cap.read()
                 # put frame into correct format
-                frame = np.expand_dims(cv2.resize(frame, (224,224), interpolation=cv2.INTER_NEAREST), axis=0)
+                frame = cv2.resize(frame, (224,224), interpolation=cv2.INTER_NEAREST)
+                # do PIL conversion to numpy using the Keras preprocessing functions
+                frame = img_to_array(frame)
+                frame = np.expand_dims(frame, axis=0)
+                # preprocess_input for image_net
+                frame = preprocess_input(frame)
                 if not ret:
                     print("Failed to obtain camera data")
                     break

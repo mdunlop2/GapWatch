@@ -179,16 +179,16 @@ def preprocess_input(frame, audio,
     F_diff = F2-F1        # frame difference
     # vstack back onto the current freame (F2)
     # get the model specific features
-    means = np.mean(F2, axis=(1,2))
-    d_means = np.mean(F_diff, axis=(1,2))
-    variances = np.var(F2, axis=(1,2))
-    d_variances = np.var(F_diff, axis=(1,2))
     # kurtosis, skewness do not support multiple axes
     # need to reshape them to (num_frames, 224*224, 1)
     tmp_batch = np.reshape(F2, (F2.shape[0],
                                 -1))
     d_tmp_batch = np.reshape(F_diff, (F_diff.shape[0],
                                 -1))
+    means = np.mean(tmp_batch, axis=1)
+    d_means = np.mean(d_tmp_batch, axis=1)
+    variances = np.var(tmp_batch, axis=1)
+    d_variances = np.var(d_tmp_batch, axis=1)
     kurtosises = kurtosis(tmp_batch, axis=1)
     d_kurtosises = kurtosis(d_tmp_batch, axis=1)
     skewnesses = skew(tmp_batch, axis=1)
