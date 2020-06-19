@@ -143,7 +143,7 @@ Interestingly the recorded Kurtosis value of the frame changes significantly aft
 
 ![ALT TEXT](./common/model/training/n3060_dif/seen.png)
 
-Performance on the unseen video below is a little bit worse, in this particular case the car is travelling very slowly and the noise produced doesn't seem to register as strongly in mfcc_0, mfcc_1, mfcc_2. This is intersesing and certainly an area for improvement.
+Performance on the unseen video below is a little bit worse, in this particular case the car is travelling very slowly and the noise produced doesn't seem to register as strongly in mfcc_0, mfcc_1, mfcc_2. This is interesting and certainly an area for improvement.
 
 ![ALT TEXT](./common/model/training/n3060_dif/unseen.png)
 
