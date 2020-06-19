@@ -135,3 +135,10 @@ There are several major caveats with the current system:
    * In the future I would like to move these transformations to the GPU, OpenCV supports OpenCL so virtually any GPU will work - this makes ARM SBCs very appealing such as RockChip RK3399
    * Ideally the feature transforms and inference can happen asychronous to the data gathering process, such that the device can be recording audio on one thread while simultaneously performing prediction on another thread.
 * If 24HR data were available, could easily perform better time series transformations. Time-weighted exponential moving average showed promising results [in this notebook](https://github.com/mdunlop2/GapWatch/blob/master/common/model/training/n3060_basic/n3060_basic.ipynb) so would like to test this further and see what type of exponential weighting would prove optimal.
+
+### Model Feature Ideas:
+If we allow ourselves to use more complex models, here are some more ideas I'd like to test:
+* Use Principal Component Analysis to analyse the difference between frames
+* Train a custom convolutional neural network on the difference between frames and supply output to another model which incorporates the audio information
+* Long Short-Term Memory Network which incorporates previous predictions, previous audio/image features.
+   * Probably should feed this the output of some processing of the images and not the raw image data itself
