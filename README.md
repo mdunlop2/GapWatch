@@ -22,7 +22,7 @@ The (very early stage) model is demonstrated in the following video (click on it
 
 [![Watch the video](https://img.youtube.com/vi/I62uLfGEN3U/hqdefault.jpg)](https://youtu.be/I62uLfGEN3U)
 
-The full training and validation process for this model is shown in a jupyter notebook [here.](https://github.com/mdunlop2/GapWatch/blob/master/common/model/training/n3060_basic/n3060_basic.ipynb)
+The full training and validation process for this model is shown in a Jupyter Notebook [here.](https://github.com/mdunlop2/GapWatch/blob/master/common/model/training/n3060_dif/n3060_dif_training.ipynb)
 
 ## Data Capture
 
@@ -109,15 +109,29 @@ SQLite may not be the best SQL storage solution if the project is migrated to th
 
 The work so far in this project has been completed to allow for the interchanging of model-related components as much as possible. That said, an early indicator of the potential performance of this system can be obtained from the experiments with the logistic regression model.
 
-[ROC curve]
+This is the model from 19th June, which displays very promising results even on unseen data. Note that "unseen" data is defined as frames from an entire video which has not been previously seen by the model. This accounts for the fact that frames from the same video clip will have some degree of correlation in terms of features.
 
-[INFERENCE ON SOME VALIDATION DATA]
+![Alt Text](./common/model/training/n3060_dif/lr_roc.png)
+
+![ALT TEXT](./common/model/training/n3060_dif/lr.png)
+
+![ALT TEXT](./common/model/training/n3060_dif/seen.png)
+
+![ALT TEXT](./common/model/training/n3060_dif/unseen.png)
+
+For an in-depth look at this particular model and how it was trained, please see the Jupyter Notebook [here.](https://github.com/mdunlop2/GapWatch/blob/master/common/model/training/n3060_dif/n3060_dif_training.ipynb)
 
 ### Future Improvements
 
 There are several major caveats with the current system:
 
-1. The current model was deployed on a laptop with different camera and microphone than the system that was used to capture the training data
-2. The logistic regression model does not account for interactions between the audio and image features
-3. The pipeline is not as well optimised as it could be, need to diagnose bottlenecks as FPS should be much higher.
-4. Since audio features seemed much more important, could experiment with lower resolution image features to see if higher framerate improves performance
+* The current model was deployed on a laptop with different camera and microphone than the system that was used to capture the training data
+   * Training data should come from the same camera and microphone as used for inference
+* The logistic regression model does not account for interactions between the audio and image features
+   * In deployment, there will be times when there is no danger on the road but sounds like there is, eg. a tractor working in a field nearby
+   * To adjust for this, need to gather video on site when machines are working in fields nearby
+* The pipeline is not as well optimised as it could be, need to diagnose bottlenecks as FPS should be much higher.
+   * The primary bottleneck I found was with OpenCV when reading and resizing frames. This takes place on the CPU, however the HP Stream Laptop did not have optimised routines for this, falling back to SSE instructions.
+   * In the future I would like to move these transformations to the GPU, OpenCV supports OpenCL so virtually any GPU will work - this makes ARM SBCs very appealing such as RockChip RK3399
+   * Ideally the feature transforms and inference can happen asychronous to the data gathering process, such that the device can be recording audio on one thread while simultaneously performing prediction on another thread.
+* If 24HR data were available, could easily perform better time series transformations. Time-weighted exponential moving average showed promising results [in this notebook](https://github.com/mdunlop2/GapWatch/blob/master/common/model/training/n3060_basic/n3060_basic.ipynb) so would like to test this further and see what type of exponential weighting would prove optimal.
