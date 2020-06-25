@@ -19,12 +19,88 @@ Start by installing opencv with opencl capabilities. I had a laptop with both In
 sudo apt-get install -y --no-install-recommends \
         ocl-icd-libopencl1 \
         clinfo \
-        beignet
+        beignet \
+        opencl-headers
 ```
 
 *(Using nVidia GT650m GPU)*
 
-Make sure that the nVidia GPU is selected, this may require a reboot. Can check which GPU you are using with `sudo lshw -C display  *-display`
+Getting nVidia drivers setup can be tricky and can vary between OS and versions. I use POP! OS 18 which comes with nVidia driver 430.34 and `clinfo` shows that it is available for opencl.
+
+Make sure that the nVidia GPU is selected, this may require a reboot.
+
+
+Before we install OpenCV for Python, we must set up the Python environment it will be compiled for.
+
+Set up a new Python 3.7 environment using Anaconda:
+
+'''
+conda create -n GapWatch python=3.7 --file common/environments/dev/requirements.txt
+'''
+
+Make sure to activate this new environment!
+
+'''
+conda activate GapWatch
+'''
+
+Some libraries require conda forge to install:
+
+```
+conda install -c conda-forge librosa
+```
+
+Go to somewhere outside the GapWatch project directory (for example ~/Downloads)
+
+```
+git clone https://github.com/opencv/opencv.git
+cd opencv/
+git checkout 4.1.0
+mkdir build
+cd build
+cmake -D CMAKE_BUILD_TYPE=RELEASE \
+        -D CMAKE_INSTALL_PREFIX=/usr/local \
+        -D INSTALL_PYTHON_EXAMPLES=ON \
+        -D INSTALL_C_EXAMPLES=OFF \
+        -D PYTHON_EXECUTABLE=$(which python3) \
+        -D BUILD_opencv_python2=OFF \
+        -D CMAKE_INSTALL_PREFIX=$(python3 -c 'import sys; print(sys.prefix)') \
+        -D PYTHON3_EXECUTABLE=$(which python3) \
+        -D PYTHON3_INCLUDE_DIR=$(python3 -c 'from distutils.sysconfig import get_python_inc; print(get_python_inc())') \
+        -D PYTHON3_PACKAGES_PATH=$(python3 -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())') \
+        -D WITH_OPENCL=ON \
+        -D BUILD_EXAMPLES=ON ..
+```
+
+Install this compiled OpenCV, replace 4 with the number of threads you want to run.
+
+```
+make -j8
+```
+
+Add to the anaconda environment:
+
+'''
+sudo make install
+'''
+
+Finally, add a link to the GapWatch Anaconda environment. Note that this will depend on where you installed Anaconda! See this great tutorial for more: https://jayrobwilliams.com/files/html/OpenCV_Install.html
+
+```
+cd /home/mdunlop/anaconda3/envs/GapWatch/lib/python3.7
+ln -s /usr/local/python/cv2 cv2
+```
+
+If you open a python interpreter you should be able to:
+
+1. Import cv2
+2. Verify that OpenCL can be used
+
+![Alt text](./common/assets/opencv_opencl_success.png)
+
+
+
+
 
 
 
@@ -39,7 +115,7 @@ To set up the environment with Linode, one option is to use their "Stack Scripts
 
 ## Intel Celeron N3060 Base Image (n3060)
 
-It turns out that it is Docker is not designed with sharing WebCams or Microphones with containers in mind. Instead it is better to simply work with a single virtual environment for the machine, where I have successfully tested the camera with OpenCV.
+It turns out that Docker is not designed with sharing WebCams or Microphones with containers in mind. Instead it is better to simply work with a single virtual environment for the machine, where I have successfully tested the camera with OpenCV.
 
 Celeron N3060 does **NOT** support AVX instructions, so tensorflow >1.5 won't run (can compile from source but this can take up to 25 hours and is not guaranteed to work).
 
