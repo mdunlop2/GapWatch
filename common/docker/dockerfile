@@ -1,3 +1,0 @@
-FROM jupyter/tensorflow-notebook:dc57157d6316
-
-RUN pip install opencv-python
