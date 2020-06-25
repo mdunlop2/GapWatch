@@ -21,7 +21,7 @@ python common/data/labels/app/app.py --PLAYBACK_RATE 5 "/home/mdunlop/Documents/
 
 `STATIC` is the directory where the videos are stored. The videos may be contained in sub-directories of this directory, that's ok as we find them with a recursive search.
 
-`--PLAYBACK_RATE` represents how fast the playback should be. 7x means that each video will play at 7x speed. I recommend experimenting with this to find what the maximum speed your storage medium can support. I had a 5400rpm Toshiba Eco Hard Disk Drive which could support 5x maximum before the video player would skip frames.
+`--PLAYBACK_RATE` represents how fast the playback should be. 7x means that each video will play at 7x speed. I recommend experimenting with this to find what the maximum speed your storage medium can support. I had a 5400rpm Toshiba Eco Hard Disk Drive which could support 4x maximum before the video player would skip frames.
 
 Open up the label application like here:
 
