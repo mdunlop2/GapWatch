@@ -56,6 +56,8 @@ And some libraries only install with pip:
 pip install dash_player
 ```
 
+May need to install some opencv prerequisites to compile: https://medium.com/@galaktyk01/how-to-build-opencv-with-gstreamer-b11668fa09c , in particular gstreamer and ffmpeg should already be installed.
+
 Go to somewhere outside the GapWatch project directory (for example cd ~/Downloads)
 
 ```
@@ -75,6 +77,8 @@ cmake -D CMAKE_BUILD_TYPE=RELEASE \
         -D PYTHON3_INCLUDE_DIR=$(python3 -c 'from distutils.sysconfig import get_python_inc; print(get_python_inc())') \
         -D PYTHON3_PACKAGES_PATH=$(python3 -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())') \
         -D WITH_OPENCL=ON \
+        -D WITH_GSTREAMER=ON \
+        -D WITH_LIBV4L=ON \
         -D BUILD_EXAMPLES=ON ..
 ```
 
