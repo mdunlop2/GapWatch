@@ -47,10 +47,16 @@ conda activate GapWatch
 Some libraries require conda forge to install:
 
 ```
-conda install -c conda-forge librosa
+conda install -c conda-forge librosa dash
 ```
 
-Go to somewhere outside the GapWatch project directory (for example ~/Downloads)
+And some libraries only install with pip:
+
+```
+pip install dash_player
+```
+
+Go to somewhere outside the GapWatch project directory (for example cd ~/Downloads)
 
 ```
 git clone https://github.com/opencv/opencv.git

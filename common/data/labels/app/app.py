@@ -52,7 +52,7 @@ default_properties = {
     "frame_start"          : 0,
     "last_video_url"      : "",
     "last_label"          : labels[0],
-    "current_framerate"   : 0,
+    "current_framerate"   : 30,
     "author"              : "Default"
 }
 
@@ -320,6 +320,10 @@ def next_footage(footage, current_time):
     
     # get framerate
     video = cv2.VideoCapture(full_url)
+    # check we can read the frame
+    res, image = video.read()
+    if not res:
+        print("Video unable to read video \n{}".format(full_url))
     FRAMERATE = int(video.get(cv2.CAP_PROP_FPS))
     # update config
     config["current_video_pos"] = new_pos

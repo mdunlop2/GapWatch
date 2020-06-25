@@ -15,3 +15,5 @@ testdisk.log
 audio_demo.pdf
 video_demo.pdf
 n3060.log
+.vscode/settings.json
+common/data/labels/app/static
