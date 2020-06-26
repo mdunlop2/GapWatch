@@ -225,18 +225,19 @@ def video_to_audio_TS(video_url,
             # read the audio leading up to frame i
             # this prevents lookahead bias
             # (although in deployment, audio and image features are found sequentially currently)
-            audio_pos = max(0,min(wf.getnframes()-1,int(np.floor(RATE*(i/vid_FPS)-CHUNK))))
+            audio_pos = max(0,min(int(np.floor(wf.getnframes()-CHUNK)),int(np.floor(RATE*(i/vid_FPS)-CHUNK))))
             wf.setpos(audio_pos)
             ret.append(np.frombuffer(wf.readframes(int(np.floor(CHUNK))), dtype=np.int16).astype(float))
             bar.update(i-frame_start)
     # create the batch by stacking the desired previous audio clips in the usual format
     n_derivatives = m.frame_derivatives()
-    audio_batch = np.array(ret)[n_derivatives:]
+    audio_batch = np.array(ret)[n_derivatives:,:]
     frames = np.arange(n_derivatives+frame_start,frame_end)
-    print(f"audio batch shape: {audio_batch.shape} frames shape: {frames.shape}")
+    
     for i in range(n_derivatives):
             # stack on the desired previous frames
-            audio_batch = np.vstack((audio_batch, ret[(n_derivatives-i-1):-(-i-1)]))
+            audio_batch = np.vstack((audio_batch, ret[(n_derivatives-i-1):(-i-1)]))
+    print(f"audio batch shape: {audio_batch.shape} frames shape: {frames.shape}")
     return audio_batch, frames, RATE
 
 if __name__ == "__main__":

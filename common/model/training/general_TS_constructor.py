@@ -107,6 +107,8 @@ def extract_features(DATABASE,
     # NOTE: Big changes required to this if multiple authors implemented!
     cur.execute(label_sql)
     label_data = np.array(cur.fetchall())
+    # only interested in labels not NaN!
+    label_data = label_data[np.isin(label_data[:,3], labels),:]
     # get the unique videos
     unique, counts = np.unique(label_data[:,0], return_counts=True)
     print(f"Unique Videos: \n{unique}")
@@ -172,7 +174,9 @@ def extract_features(DATABASE,
         frames = np.arange(n_derivatives+frame_start,frame_end) # indices of the current frame to refer to video
         for j in range(n_derivatives):
             # stack on the desired previous frames
-            img_batch = np.vstack((img_batch, images[(n_derivatives-j-1):-(-j-1),:,:]))
+            to_add = images[(n_derivatives-j-1):(-j-1),:,:]
+            print(f"Vstacking on array of shape {to_add.shape} to image_batch")
+            img_batch = np.vstack((img_batch, to_add))
         # obtain the batch of audio data
         audio_batch, frames, RATE = af.video_to_audio_TS(
                                         label_data[i,0],
@@ -184,6 +188,8 @@ def extract_features(DATABASE,
         print(f"Video and audio available at {(frame_end-frame_start)/(time.time()-start)} FPS")
         # ready for batch preprocessing as usual!
         # get features using model preprocessing stage
+        print(f"Image batch shape: {img_batch.shape} prev frames: {n_derivatives}")
+        print(f"Audio batch shape: {audio_batch.shape} prev frames: {n_derivatives}")
         features = m.preprocess_input(  frame = img_batch,
                                         audio = audio_batch,
                                         inference = False,
@@ -195,12 +201,13 @@ def extract_features(DATABASE,
         df[headers[0]] = np.NaN
         # iterate over each recorded SQL row to label the appropriate frame
         rel_label_data = label_data[label_data[:,0]==video_url,:]
-        for i in range(counts[i]):
-            frame_label       = rel_label_data[i,3]
-            frame_label_start = rel_label_data[i,1]
-            frame_label_end   = rel_label_data[i,2]
+        for k in range(counts[i]):
+            frame_label       = rel_label_data[k,3]
+            frame_label_start = rel_label_data[k,1].astype(float)
+            frame_label_end   = rel_label_data[k,2].astype(float)
+            print(f"frame label: {frame_label}\nstart: {frame_label_start}\nframe end: {frame_label_end}")
             # make sure that the correct rows are labelled
-            df[(df.index >= frame_label_start)&(df.index <= frame_label_end), headers[0]] = frame_label
+            df.loc[(frames >= frame_label_start)&(frames <= frame_label_end), headers[0]] = frame_label
         df[headers[1]] = label_data[i,0] # video location
         df[headers[2]] = frames          # frame numbers
         # make sure that correct order of headers is saved to csv
