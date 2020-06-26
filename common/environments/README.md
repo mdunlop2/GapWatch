@@ -44,19 +44,9 @@ Make sure to activate this new environment!
 conda activate GapWatch
 '''
 
-Some libraries require conda forge to install:
-
-```
-conda install -c conda-forge librosa dash
-```
-
-And some libraries only install with pip:
-
-```
-pip install dash_player
-```
-
 May need to install some opencv prerequisites to compile: https://medium.com/@galaktyk01/how-to-build-opencv-with-gstreamer-b11668fa09c , in particular gstreamer and ffmpeg should already be installed.
+
+Note that if you plan to use ffmpeg with GPU, you must uninstall ffmpeg from anaconda as this does not support GPU hardware acceleration. Instead, use `sudo apt install ffmpeg` which will correctly detect your new OpenCL configuration.
 
 Go to somewhere outside the GapWatch project directory (for example cd ~/Downloads)
 
@@ -107,6 +97,18 @@ If you open a python interpreter you should be able to:
 2. Verify that OpenCL can be used
 
 ![Alt text](./common/assets/opencv_opencl_success.png)
+
+Some libraries require conda forge to install:
+
+```
+conda install -c conda-forge librosa dash
+```
+
+And some libraries only install with pip:
+
+```
+pip install dash_player
+```
 
 
 

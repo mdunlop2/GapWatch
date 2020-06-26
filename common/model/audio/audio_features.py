@@ -170,6 +170,75 @@ def video_to_audio(video_url,
             bar.update(idx)
     return ret, frames, RATE
 
+def video_to_audio_TS(video_url,
+                      frame_start,
+                      frame_end,
+                      vid_FPS,
+                      m):
+    '''
+    NOTE: To be used with time series dataset constructor,
+    general_TS_constructor.py
+    Read a .mp4 video file and return a vstack numpy
+    array of the audio in a format librosa can understand
+
+    Frames are sampled uniformly between frame_start and frame_end
+    INPUTS:
+    video_url   : String
+    frame_start : Starting Frame Number
+    frame_end   : Ending Frame Number
+                    - if False:
+                        We use the last frame in the video
+
+    OUTPUT:
+    List       : Shape: (num_frames)
+                  A list is used since this will be supplied to a starmap
+                  for parallelism.
+    '''
+    temp_fn = "audio.wav" # temporary filename
+    # make sure it doesn't exist already
+    while os.path.isfile(temp_fn):
+        # delete temporary file
+        # file deletions appear to fail sometimes
+        os.remove(temp_fn)
+        time.sleep(0.01)
+    
+    command = ["ffmpeg", "-i", video_url, "-ab", "160k",
+               "-ac", "2", "-ar", "44100", "-vn", temp_fn]
+    subprocess.call(command)
+    # read the audio file
+    wf = wave.open(temp_fn, 'rb')
+    p = pyaudio.PyAudio()
+    # open stream based on the wave object which has been input.
+    RATE = wf.getframerate()
+    CHUNK = RATE*m.const_trail()
+    stream = p.open(format =
+                p.get_format_from_width(wf.getsampwidth()),
+                channels = wf.getnchannels(),
+                rate = RATE,
+                output = True)
+    # find all the audio clips and then proceed to create the audio batch
+    # this way only need to iterate through sound clip once
+    ret = []
+    print("Reading {} .mp4 file and \nextracting audio clips between frame {} and {}".format(video_url, frame_start, frame_end))
+    with progressbar.ProgressBar(max_value=(frame_end-frame_start)) as bar:
+        for i in range(frame_start, frame_end):
+            # read the audio leading up to frame i
+            # this prevents lookahead bias
+            # (although in deployment, audio and image features are found sequentially currently)
+            audio_pos = max(0,min(wf.getnframes()-1,int(np.floor(RATE*(i/vid_FPS)-CHUNK))))
+            wf.setpos(audio_pos)
+            ret.append(np.frombuffer(wf.readframes(int(np.floor(CHUNK))), dtype=np.int16).astype(float))
+            bar.update(i-frame_start)
+    # create the batch by stacking the desired previous audio clips in the usual format
+    n_derivatives = m.frame_derivatives()
+    audio_batch = np.array(ret)[n_derivatives:]
+    frames = np.arange(n_derivatives+frame_start,frame_end)
+    print(f"audio batch shape: {audio_batch.shape} frames shape: {frames.shape}")
+    for i in range(n_derivatives):
+            # stack on the desired previous frames
+            audio_batch = np.vstack((audio_batch, ret[(n_derivatives-i-1):-(-i-1)]))
+    return audio_batch, frames, RATE
+
 if __name__ == "__main__":
     # initiate the parser
     parser = argparse.ArgumentParser()
