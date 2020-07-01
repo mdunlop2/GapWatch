@@ -186,7 +186,7 @@ def extract_features(DATABASE,
                 img_batch = np.vstack((img_batch, to_add))
             # obtain the batch of audio data
             audio_batch, frames, RATE = af.video_to_audio_TS(
-                                            label_data[i,0],
+                                            video_url,
                                             frame_start,
                                             frame_end,
                                             frame_rate,
@@ -215,7 +215,7 @@ def extract_features(DATABASE,
                 print(f"frame label: {frame_label}\nstart: {frame_label_start}\nframe end: {frame_label_end}")
                 # make sure that the correct rows are labelled
                 df.loc[(frames >= frame_label_start)&(frames <= frame_label_end), headers[0]] = frame_label
-            df[headers[1]] = label_data[i,0] # video location
+            df[headers[1]] = video_url  # video location
             df[headers[2]] = frames          # frame numbers
             # make sure that correct order of headers is saved to csv
             df = df[headers]

@@ -33,8 +33,10 @@ Fortunately, OpenCV on bare-metal Ubuntu does support the WebCam. Setup will use
 
 We will use Anaconda to manage virtual environments.
 
+Start from the project root directory, GapWatch
+
 ```
-conda create --name GapWatch --file requirements.txt
+conda create --name GapWatch --file edge/HPSTREAM11/ENV/requirements.txt
 conda activate GapWatch
 conda install -c conda-forge librosa=0.7.2
 ```
@@ -44,4 +46,6 @@ Then install Open-CV through pip (because the Conda version of this library is c
 ```
 pip install opencv-python=4.2.0.34
 ```
+
+Tensorflow binaries require AVX instructions for x86 platforms since release 1.5, so will need to compile it from source:
 
