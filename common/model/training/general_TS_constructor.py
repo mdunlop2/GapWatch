@@ -113,8 +113,8 @@ def extract_features(DATABASE,
     unique, counts = np.unique(label_data[:,0], return_counts=True)
     print(f"Unique Videos: \n{unique}")
     # loop over videos
-    # for i in range(len(unique)):
-    for i in range(5):
+    for i in range(len(unique)):
+    #for i in range(5):
         start = time.time()
         video_url = unique[i] # get our video url
         # find the directory where our output video will be stored
@@ -148,73 +148,81 @@ def extract_features(DATABASE,
         # read the video
         video = cv2.VideoCapture(temp_video_url)
         # find video end
-        frame_end = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_start = 0
-        # get framerate
-        frame_rate = int(video.get(cv2.CAP_PROP_FPS))
-        # NOTE: It is well documented that OpenCV cap.set(cv2.CAP_PROP_POS_FRAMES) is extremely
-        # slow, instead one should use the video.read() which iterates the frames.
-        # since we'll be reading all the frames of the video, we just need to pass through it once.
-        # Then, the pre-process input function can deal with obtaining the frame-to-frame derivatives
-        images = np.zeros((frame_end-frame_start, target_size[0], target_size[1]))
-        print("Reading {} .mp4 file and \nextracting frames between frame {} and {}".format(video_url, frame_start, frame_end))
-        video.set(cv2.CAP_PROP_POS_FRAMES, 0) # start from beginning
-        with progressbar.ProgressBar(max_value=(frame_end-frame_start)) as bar:
-            for idx in range(frame_start,frame_end):
-                # get the frame number
-                frame_number = i
-                # get the frame
-                res, image = video.read()
-                # Store the image
-                images[idx,:,:] = np.expand_dims(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), axis=0)
-                bar.update(i-frame_start)
-        # stack into the desired format for getting frame to frame derivatives
-        n_derivatives = m.frame_derivatives()
-        img_batch = images[n_derivatives:,:,:] # "current frame"
-        frames = np.arange(n_derivatives+frame_start,frame_end) # indices of the current frame to refer to video
-        for j in range(n_derivatives):
-            # stack on the desired previous frames
-            to_add = images[(n_derivatives-j-1):(-j-1),:,:]
-            print(f"Vstacking on array of shape {to_add.shape} to image_batch")
-            img_batch = np.vstack((img_batch, to_add))
-        # obtain the batch of audio data
-        audio_batch, frames, RATE = af.video_to_audio_TS(
-                                        label_data[i,0],
-                                        frame_start,
-                                        frame_end,
-                                        frame_rate,
-                                        m)
-        # how fast are we getting frame and audio in usable format?
-        print(f"Video and audio available at {(frame_end-frame_start)/(time.time()-start)} FPS")
-        # ready for batch preprocessing as usual!
-        # get features using model preprocessing stage
-        print(f"Image batch shape: {img_batch.shape} prev frames: {n_derivatives}")
-        print(f"Audio batch shape: {audio_batch.shape} prev frames: {n_derivatives}")
-        features = m.preprocess_input(  frame = img_batch,
-                                        audio = audio_batch,
-                                        inference = False,
-                                        RATE = RATE)
-        headers = m.const_header()
-        # write to csv with pandas
-        df = pd.DataFrame(data = features, columns=headers[3:], index=frames)
-        # figure out what label to give to each observation.
-        df[headers[0]] = np.NaN
-        # iterate over each recorded SQL row to label the appropriate frame
-        rel_label_data = label_data[label_data[:,0]==video_url,:]
-        for k in range(counts[i]):
-            frame_label       = rel_label_data[k,3]
-            frame_label_start = rel_label_data[k,1].astype(float)
-            frame_label_end   = rel_label_data[k,2].astype(float)
-            print(f"frame label: {frame_label}\nstart: {frame_label_start}\nframe end: {frame_label_end}")
-            # make sure that the correct rows are labelled
-            df.loc[(frames >= frame_label_start)&(frames <= frame_label_end), headers[0]] = frame_label
-        df[headers[1]] = label_data[i,0] # video location
-        df[headers[2]] = frames          # frame numbers
-        # make sure that correct order of headers is saved to csv
-        df = df[headers]
-        # append to previous csv if it exists
-        df.to_csv(args.s, mode='a', header=not os.path.exists(args.s), index=False)
-        print(f"Model features available at {(frame_end-frame_start)/(time.time()-start)} FPS")
+        # NOTE: I started running out of RAM when videos reached ~8000 Frames (required massive arrays, about 100m cells in total)
+        # so its probably best to split the videos into smaller batches.
+        max_batch_size = 4000 # frames
+        tot_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        n_batches = (tot_frames // max_batch_size) +1
+        print(f"Number of Batches: {n_batches}")
+
+        for b in range(n_batches):
+            # define start and end point
+            frame_end = min((b+1)*max_batch_size, tot_frames)
+            frame_start = b*max_batch_size
+            # get framerate
+            frame_rate = int(video.get(cv2.CAP_PROP_FPS))
+            # NOTE: It is well documented that OpenCV cap.set(cv2.CAP_PROP_POS_FRAMES) is extremely
+            # slow, instead one should use the video.read() which iterates the frames.
+            # since we'll be reading all the frames of the video, we just need to pass through it once.
+            # Then, the pre-process input function can deal with obtaining the frame-to-frame derivatives
+            images = np.zeros((frame_end-frame_start, target_size[0], target_size[1]))
+            print("Reading {} .mp4 file and \nextracting frames between frame {} and {}".format(video_url, frame_start, frame_end))
+            video.set(cv2.CAP_PROP_POS_FRAMES, 0) # start from beginning
+            with progressbar.ProgressBar(max_value=(frame_end-frame_start)) as bar:
+                for fr in range(frame_end-frame_start):
+                    # get the frame
+                    res, image = video.read()
+                    # Store the image
+                    images[fr,:,:] = np.expand_dims(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), axis=0)
+                    bar.update(fr)
+            # stack into the desired format for getting frame to frame derivatives
+            n_derivatives = m.frame_derivatives()
+            img_batch = images[n_derivatives:,:,:] # "current frame"
+            frames = np.arange(n_derivatives+frame_start,frame_end) # indices of the current frame to refer to video
+            for j in range(n_derivatives):
+                # stack on the desired previous frames
+                to_add = images[(n_derivatives-j-1):(-j-1),:,:]
+                print(f"Vstacking on array of shape {to_add.shape} to image_batch")
+                img_batch = np.vstack((img_batch, to_add))
+            # obtain the batch of audio data
+            audio_batch, frames, RATE = af.video_to_audio_TS(
+                                            label_data[i,0],
+                                            frame_start,
+                                            frame_end,
+                                            frame_rate,
+                                            m)
+            # how fast are we getting frame and audio in usable format?
+            print(f"Video and audio available at {(frame_end-frame_start)/(time.time()-start)} FPS")
+            # ready for batch preprocessing as usual!
+            # get features using model preprocessing stage
+            print(f"Image batch shape: {img_batch.shape} prev frames: {n_derivatives}")
+            print(f"Audio batch shape: {audio_batch.shape} prev frames: {n_derivatives}")
+            features = m.preprocess_input(  frame = img_batch,
+                                            audio = audio_batch,
+                                            inference = False,
+                                            RATE = RATE)
+            headers = m.const_header()
+            # write to csv with pandas
+            df = pd.DataFrame(data = features, columns=headers[3:], index=frames)
+            # figure out what label to give to each observation.
+            df[headers[0]] = np.NaN
+            # iterate over each recorded SQL row to label the appropriate frame
+            rel_label_data = label_data[label_data[:,0]==video_url,:]
+            for k in range(counts[i]):
+                frame_label       = rel_label_data[k,3]
+                frame_label_start = rel_label_data[k,1].astype(float)
+                frame_label_end   = rel_label_data[k,2].astype(float)
+                print(f"frame label: {frame_label}\nstart: {frame_label_start}\nframe end: {frame_label_end}")
+                # make sure that the correct rows are labelled
+                df.loc[(frames >= frame_label_start)&(frames <= frame_label_end), headers[0]] = frame_label
+            df[headers[1]] = label_data[i,0] # video location
+            df[headers[2]] = frames          # frame numbers
+            # make sure that correct order of headers is saved to csv
+            df = df[headers]
+            # append to previous csv if it exists
+            df.to_csv(args.s, mode='a', header=not os.path.exists(args.s), index=False)
+            del(df, audio_batch, img_batch, images, frames,features,to_add) # memory cleanup
+        print(f"Model features available at {(tot_frames)/(time.time()-start)} FPS")
 
         
 
